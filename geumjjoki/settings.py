@@ -37,11 +37,21 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 INSTALLED_APPS = [
     # 커스텀 앱
     'accounts',
+    'articles',
+    'expenses',
+    'challenges',
+    'rewards',
     # 서드파티 앱
     'django_extensions',
     'rest_framework',
     'drf_spectacular',
     'corsheaders',
+    'rest_framework_simplejwt',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.kakao',
+    'allauth.socialaccount.providers.naver',
     # 기본 앱
     'django.contrib.admin',
     'django.contrib.auth',
@@ -50,10 +60,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.kakao',
 ]
 
 MIDDLEWARE = [
@@ -166,6 +172,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
 }
 
 SPECTACULAR_SETTINGS = {
@@ -181,6 +190,8 @@ AUTH_USER_MODEL = 'accounts.User'
 SITE_ID = 1
 
 KAKAO_REST_API_KEY = os.getenv('KAKAO_REST_API_KEY')
+NAVER_REST_API_KEY = os.getenv('NAVER_REST_API_KEY')
+NAVER_SECRET_KEY = os.getenv('NAVER_SECRET_KEY')
 SOCIALACCOUNT_PROVIDERS = {
     'kakao': {
         'APP': {
@@ -190,8 +201,21 @@ SOCIALACCOUNT_PROVIDERS = {
         },
         'SCOPE': ['profile_nickname'],
         'AUTH_PARAMS': {'response_type': 'code'},
+    },
+    'naver': {
+        'APP': {
+            'client_id': NAVER_REST_API_KEY,
+            'secret': NAVER_SECRET_KEY,
+            'key': ''
+        },
     }
 }
 
 SOCIALACCOUNT_ADAPTER = 'accounts.adapter.CustomSocialAccountAdapter'
 ACCOUNT_ADAPTER = 'accounts.adapter.CustomAccountAdapter'
+
+# 로그인 성공 시 최종 리디렉션 처리 뷰 경로
+# LOGIN_REDIRECT_URL = 'accounts:social_login_redirect'
+
+# 로그아웃 시 이동할 경로 (선택 사항)
+# ACCOUNT_LOGOUT_REDIRECT_URL = 'http://localhost:3000/' # 필요 시 프론트엔드 주소 지정

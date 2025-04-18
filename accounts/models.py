@@ -16,6 +16,7 @@ class User(AbstractUser):
     user_status = models.IntegerField(default=1)
     # user_created_at = date_joined 필드 사용 가능
     user_changed_at = models.DateTimeField(auto_now=True) # AbstractUser의 last_login과 유사하지만, 모델 변경 시마다 갱신
+    user_profile_image = models.ImageField(upload_to='user_profile_images/', null=True, blank=True)
 
     # AbstractUser의 기본 필드를 사용하도록 변경
     USERNAME_FIELD = 'email'

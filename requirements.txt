@@ -11,6 +11,7 @@ django-cors-headers==4.7.0
 django-extensions==4.1
 django-filter==25.1
 djangorestframework==3.16.0
+djangorestframework_simplejwt==5.5.0
 dotenv==0.9.9
 drf-spectacular==0.28.0
 exceptiongroup==1.2.2
@@ -29,6 +30,7 @@ parso==0.8.4
 prompt_toolkit==3.0.51
 pure_eval==0.2.3
 Pygments==2.19.1
+PyJWT==2.9.0
 python-dotenv==1.1.0
 PyYAML==6.0.2
 referencing==0.36.2
