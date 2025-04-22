@@ -3,8 +3,8 @@ from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
 from rest_framework_simplejwt.tokens import RefreshToken
-
-# Create your views here.
+from allauth.socialaccount.providers.kakao import views as kakao_views
+from allauth.socialaccount.providers.naver import views as naver_views
 
 @login_required # 로그인 된 사용자만 접근 가능하도록
 def social_login_redirect(request):
