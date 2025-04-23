@@ -27,6 +27,7 @@ Markdown==3.8
 matplotlib-inline==0.1.7
 mysqlclient==2.2.7
 parso==0.8.4
+pillow==11.2.1
 prompt_toolkit==3.0.51
 pure_eval==0.2.3
 Pygments==2.19.1
