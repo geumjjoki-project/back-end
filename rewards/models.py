@@ -32,7 +32,7 @@ class RewardTransaction(models.Model):
     )
     # 리워드식별자
     reward = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        Reward,
         on_delete=models.CASCADE,
     )
     # 교환상태
