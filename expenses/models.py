@@ -69,7 +69,7 @@ class Expense(models.Model):
     date = models.DateField()
 
     # 나의챌린지식별자
-    user_challenge_id = models.ForeignKey(
+    user_challenge = models.ForeignKey(
         UserChallenge,
         on_delete=models.SET_NULL,
         null=True,
@@ -88,7 +88,7 @@ class Expense(models.Model):
                 pass
         # 카테고리가 존재하지 않으면 기타 카테고리를 반환함
         try:
-            return Category.objects.get(pk=7)  # 기타 카테고리의 pk 지정
+            return Category.objects.get(name="기타상품·서비스")
         except Category.DoesNotExist:
             return None
 
