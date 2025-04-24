@@ -1,9 +1,12 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 app_name = 'accounts'
 
 urlpatterns = [
-    # ... 다른 accounts 관련 URL 패턴들 ...
-    path('social/redirect/', views.social_login_redirect, name='social_login_redirect'),
-] 
+    # allauth URL은 그대로 유지
+    # 직접 카카오 로그인 시작 URL
+    path('kakao-login/', views.kakao_login, name='kakao_login'),
+    # 소셜 로그인 성공 후 콜백 URL
+    path('login/callback/', views.social_login_callback, name='login_callback'),
+]
