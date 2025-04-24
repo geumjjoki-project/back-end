@@ -2,26 +2,99 @@ from django.db import models
 from django.conf import settings
 
 # Create your models here.
+
+
+# 챌린지주최자
 class ChallengeHost(models.Model):
-    challenge_host_id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    challenge_host_company_name = models.TextField()
-    challenge_host_phone_number = models.TextField()
+    ##################################################
+    # 챌린지주최자식별자
+    challenge_host_id = models.BigAutoField(
+        primary_key=True,
+    )
+    # 회원식별자
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
+    # 회사명
+    company_name = models.TextField()
+    # 전화번호
+    phone_number = models.TextField()
+    ##################################################
 
+
+# 챌린지
 class Challenge(models.Model):
-    challenge_id = models.AutoField(primary_key=True)
-    challenge_host = models.ForeignKey(ChallengeHost, on_delete=models.CASCADE)
-    challenge_title = models.CharField(max_length=100)
-    challenge_content = models.TextField()
-    challenge_target_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    challenge_status = models.CharField(max_length=20)
-    challenge_start_date = models.DateTimeField()
-    challenge_end_date = models.DateTimeField()
+    ##################################################
+    # 챌린지식별자
+    challenge_id = models.BigAutoField(
+        primary_key=True,
+    )
+    # 챌린지주최자식별자
+    challenge_host = models.ForeignKey(
+        ChallengeHost,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    # 제목
+    title = models.CharField(
+        max_length=100,
+    )
+    # 내용
+    content = models.TextField()
+    # 상태
+    status = models.CharField(
+        max_length=20,
+    )
+    # 시작일
+    start_date = models.DateTimeField()
+    # 종료일
+    end_date = models.DateTimeField()
+    ##################################################
 
+
+# 나의챌린지
 class UserChallenge(models.Model):
-    user_challenge_id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    challenge = models.ForeignKey(Challenge, on_delete=models.CASCADE)
-    user_challenge_total_expense = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    user_challenge_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    user_challenge_status = models.CharField(max_length=20)
+    ##################################################
+    # 나의챌린지식별자
+    user_challenge_id = models.BigAutoField(primary_key=True)
+    # 회원식별자
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
+    # 챌린지식별자
+    challenge = models.ForeignKey(
+        Challenge,
+        on_delete=models.CASCADE,
+    )
+    # 목표금액
+    target_expense = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
+    # 이전지출금액
+    previous_expense = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
+    # 누적지출금액
+    total_expense = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
+    # 진행도
+    progress = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+    )
+    # 상태
+    status = models.CharField(
+        max_length=20,
+    )
+    ##################################################
