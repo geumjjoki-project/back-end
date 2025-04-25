@@ -91,5 +91,5 @@ class Command(BaseCommand):
         ]
         UserProfile.objects.bulk_create(profiles, batch_size=batch_size)
         self.stdout.write(
-            self.style.SUCCESS(f"{len(profiles)}개의 UserProfile 생성 완료")
+            self.style.SUCCESS(f"✅   {len(profiles)} 명의 프로필 생성 완료")
         )

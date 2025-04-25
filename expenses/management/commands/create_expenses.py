@@ -9,6 +9,20 @@ from django.db import transaction
 from accounts.models import UserProfile
 from expenses.models import Category, Expense
 
+from expenses.utils.category_descriptions import categories_data
+
+
+def generate_description(cat):
+    root = cat.get_root_category().name
+    sub = cat.name
+    try:
+        candidates = categories_data[root][sub]
+        if isinstance(candidates, list) and candidates:
+            return random.choice(candidates)
+    except (KeyError, TypeError):
+        pass
+    return f"{sub} 결제"
+
 
 def random_date_in_april():
     start = datetime(2025, 4, 1)
@@ -59,7 +73,7 @@ class Command(BaseCommand):
                         Expense(
                             user=user,
                             category=cat,
-                            description=cat.name,
+                            description=generate_description(cat),
                             amount=cost,
                             date=random_date_in_april(),
                         )
@@ -68,7 +82,8 @@ class Command(BaseCommand):
 
                 # 배치 단위로 bulk_create
                 if len(expense_objs) >= BATCH_SIZE:
-                    Expense.objects.bulk_create(expense_objs, batch_size=BATCH_SIZE)
+                    with transaction.atomic():
+                        Expense.objects.bulk_create(expense_objs, batch_size=BATCH_SIZE)
                     expense_objs.clear()
 
                 # 1,000명 단위로 진행률 출력

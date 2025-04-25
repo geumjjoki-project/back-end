@@ -173,6 +173,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "EXCEPTION_HANDLER": "expenses.exceptions.custom_exception_handler",  # 예외처리
 }
 
 SPECTACULAR_SETTINGS = {
@@ -194,7 +195,7 @@ SOCIALACCOUNT_PROVIDERS = {
     "kakao": {
         "APP": {"client_id": KAKAO_REST_API_KEY, "secret": "1232345", "key": ""},
         "SCOPE": ["profile_nickname"],
-        'AUTH_PARAMS': {'prompt': 'login'},
+        "AUTH_PARAMS": {"prompt": "login"},
     },
     "naver": {
         "APP": {"client_id": NAVER_REST_API_KEY, "secret": NAVER_SECRET_KEY, "key": ""},
@@ -205,8 +206,8 @@ SOCIALACCOUNT_ADAPTER = "accounts.adapter.CustomSocialAccountAdapter"
 ACCOUNT_ADAPTER = "accounts.adapter.CustomAccountAdapter"
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_EMAIL_VERIFICATION = "none"
 
 # 로그인 성공 시 리디렉션 URL
-LOGIN_REDIRECT_URL = 'accounts:login_callback'
-ACCOUNT_LOGOUT_REDIRECT_URL = 'http://localhost:5173/'
+LOGIN_REDIRECT_URL = "accounts:login_callback"
+ACCOUNT_LOGOUT_REDIRECT_URL = "http://localhost:5173/"
