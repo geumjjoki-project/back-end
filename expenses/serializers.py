@@ -1,5 +1,25 @@
 from rest_framework import serializers
 from .models import Expense, ExpenseAnalysis, Category
+from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
+
+
+# 에러 응답 정의
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            name="에러 응답 예시",
+            value={
+                "status": "error",
+                "message": "시작일 형식이 잘못되었습니다",
+                "error_code": "INVALID_START_DATE",
+            },
+        )
+    ]
+)
+class ErrorResponseSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    message = serializers.CharField()
+    error_code = serializers.CharField()
 
 
 # 카테고리를 재귀적으로 반환

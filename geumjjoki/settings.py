@@ -180,7 +180,7 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Geumjjoki API",
     "DESCRIPTION": "Geumjjoki API",
     "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_INCLUDE_SCHEMA": True,
     "COMPONENT_SPLIT_REQUEST": True,
 }
 
