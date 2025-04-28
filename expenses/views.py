@@ -7,14 +7,139 @@ from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from django.utils.dateparse import parse_date
 from django.db.models import Q, Sum
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiParameter,
+    OpenApiTypes,
+    OpenApiExample,
+)
 
 from .pagination import CustomPageNumberPagination
 from .models import Expense, ExpenseAnalysis, Category
-from .serializers import ExpenseSerializer
-
-# Create your views here.
+from .serializers import ExpenseSerializer, ErrorResponseSerializer
 
 
+@extend_schema(
+    summary="지출 내역 목록 조회",
+    description="지출 내역을 필터링 조건에 따라 조회하고, 페이지네이션된 결과를 반환합니다.",
+    parameters=[
+        OpenApiParameter(
+            name="start_date",
+            type=OpenApiTypes.DATE,
+            location=OpenApiParameter.QUERY,
+            description="조회 시작일",
+        ),
+        OpenApiParameter(
+            name="end_date",
+            type=OpenApiTypes.DATE,
+            location=OpenApiParameter.QUERY,
+            description="조회 종료일",
+        ),
+        OpenApiParameter(
+            name="category",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="카테고리명",
+        ),
+        OpenApiParameter(
+            name="date",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="정렬 순서: asc 또는 desc",
+        ),
+        OpenApiParameter(
+            name="page",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            description="페이지 번호",
+        ),
+        OpenApiParameter(
+            name="page_size",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            description="한 페이지 당 항목 수",
+        ),
+    ],
+    responses={
+        200: OpenApiTypes.OBJECT,
+        400: ErrorResponseSerializer,
+    },
+    examples=[
+        OpenApiExample(
+            name="성공 응답 예시",
+            value={
+                "status": "success",
+                "data": {
+                    "expenses": [
+                        {
+                            "expense_id": 4306580,
+                            "date": "2025-04-30",
+                            "amount": 19000,
+                            "category": {
+                                "id": 92,
+                                "name": "잡화/기타",
+                                "parent": "기타상품·서비스",
+                            },
+                            "description": "문구류 쇼핑",
+                        },
+                        {
+                            "expense_id": 4306422,
+                            "date": "2025-04-30",
+                            "amount": 21000,
+                            "category": {
+                                "id": 81,
+                                "name": "인터넷",
+                                "parent": "통신",
+                            },
+                            "description": "통신요금 납부",
+                        },
+                    ],
+                    "total_amount": 41000,
+                    "total_count": 2,
+                    "pagination": {
+                        "current_page": 1,
+                        "page_size": 10,
+                        "total_pages": 1,
+                        "has_next": False,
+                        "has_previous": False,
+                    },
+                },
+            },
+            response_only=True,
+            status_codes=["200"],
+        ),
+        OpenApiExample(
+            name="시작일 형식 오류",
+            value={
+                "status": "error",
+                "message": "시작일 형식이 잘못되었습니다",
+                "error_code": "INVALID_START_DATE",
+            },
+            response_only=True,
+            status_codes=["400"],
+        ),
+        OpenApiExample(
+            name="종료일 형식 오류",
+            value={
+                "status": "error",
+                "message": "종료일 형식이 잘못되었습니다",
+                "error_code": "INVALID_END_DATE",
+            },
+            response_only=True,
+            status_codes=["400"],
+        ),
+        OpenApiExample(
+            name="시작일이 종료일보다 늦음",
+            value={
+                "status": "error",
+                "message": "시작일은 종료일보다 이전이어야 합니다",
+                "error_code": "INVALID_DATE_RANGE",
+            },
+            response_only=True,
+            status_codes=["400"],
+        ),
+    ],
+)
 @api_view(["GET"])
 # @permission_classes([IsAuthenticated])
 def index(request):
@@ -73,7 +198,7 @@ def index(request):
 
     # 총합, 총건수 계산
     total_count = expenses.count()
-    total_amount = expenses.aggregate(sum=Sum("amount")).get("sum") or 0["total"] or 0
+    total_amount = expenses.aggregate(sum=Sum("amount")).get("sum") or 0
     total_amount = int(total_amount)
 
     # 페이지네이션

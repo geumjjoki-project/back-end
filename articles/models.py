@@ -38,6 +38,10 @@ class Article(models.Model):
 # 게시글이미지
 class ArticleImage(models.Model):
     ##################################################
+    # 게시글이미지식별자
+    article_image_id = models.BigAutoField(
+        primary_key=True,
+    )
     # 게시글식별자
     article = models.ForeignKey(
         Article,
