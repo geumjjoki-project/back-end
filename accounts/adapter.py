@@ -15,15 +15,15 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 kakao_account = sociallogin.account.extra_data.get('kakao_account')
                 profile = kakao_account.get('profile')
                 nickname = profile.get('nickname')
+                profile_image = profile.get('profile_image')
 
                 if nickname:
                     user.user_nickname = nickname # user_nickname 필드에 저장
-
-                # 다른 필요한 정보도 여기서 처리 가능
-                # 예: 프로필 이미지 URL 저장 등
+                
+                if profile_image:
+                    user.profile_image = profile_image
 
             except (KeyError, AttributeError):
-                # 카카오 응답 구조가 예상과 다를 경우 처리
                 pass
 
         # User 모델의 다른 커스텀 필드 기본값 설정 등 추가 로직 구현 가능
