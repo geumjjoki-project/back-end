@@ -9,4 +9,7 @@ urlpatterns = [
     path('kakao-login/', views.kakao_login, name='kakao_login'),
     # 소셜 로그인 성공 후 콜백 URL
     path('login/callback/', views.social_login_callback, name='login_callback'),
+    path('email-login/', views.email_login, name='email_login'),
+    path('email-signup/', views.email_signup, name='email_signup'),
+    path('logout/', views.logout, name='logout'),
 ]

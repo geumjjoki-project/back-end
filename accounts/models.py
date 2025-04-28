@@ -37,13 +37,6 @@ class User(AbstractUser):
     status = models.IntegerField(
         default=1,
     )
-    # first_name = 성
-    # last_name = 이름
-    # is_superuser = 모든권한활성화여부
-    # is_staff = 관리자여부
-    # is_activate = 계정활성여부
-    # last_login = 마지막로그인
-    # date_joined = 계정생성일시
     # 계정변경일시
     updated_at = models.DateTimeField(
         auto_now=True,
