@@ -44,8 +44,10 @@ class Challenge(models.Model):
     # 내용
     content = models.TextField()
     # 상태
+    # 진행중, 예정, 종료, 중지
     status = models.CharField(
         max_length=20,
+        default="예정",
     )
     # 시작일
     start_date = models.DateTimeField()
