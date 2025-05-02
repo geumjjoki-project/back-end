@@ -9,6 +9,12 @@ class RewardImageSerializer(serializers.ModelSerializer):
         fields = ("image",)
 
 
+class RewardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reward
+        fields = "__all__"
+
+
 class RewardListSerializer(serializers.ModelSerializer):
     thumbnail = serializers.SerializerMethodField()
 
