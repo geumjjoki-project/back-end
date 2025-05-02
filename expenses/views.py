@@ -59,6 +59,12 @@ from .serializers import ExpenseSerializer, ErrorResponseSerializer
             location=OpenApiParameter.QUERY,
             description="한 페이지 당 항목 수",
         ),
+        OpenApiParameter(
+            name="description",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="지출내용 검색어",
+        ),
     ],
     responses={
         200: OpenApiTypes.OBJECT,
@@ -151,6 +157,7 @@ def index(request):
     end_date = request.query_params.get("end_date")
     category_name = request.query_params.get("category")
     date_order = request.query_params.get("date")
+    description = request.query_params.get("description")
 
     # 날짜 파싱
     parsed_start = parse_date(start_date) if start_date else None
@@ -186,9 +193,11 @@ def index(request):
         expenses = expenses.filter(date__lte=parsed_end)
     if category_name:
         expenses = expenses.filter(
-            Q(category__name__iexact=category_name)
-            | Q(category__parent_category__name__iexact=category_name)
+            Q(category__name__icontains=category_name)
+            | Q(category__parent_category__name__icontains=category_name)
         )
+    if description:
+        expenses = expenses.filter(description__icontains=description)
     if date_order == "asc":
         expenses = expenses.order_by("date")
     elif date_order == "desc":
