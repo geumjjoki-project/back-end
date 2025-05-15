@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status, serializers
+from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from django.db.models import Q
 from drf_spectacular.utils import (
@@ -14,7 +15,11 @@ from drf_spectacular.utils import (
 )
 
 from .models import Reward, RewardTransaction
-from .serializers import RewardListSerializer, RewardTransactionSerializer
+from .serializers import (
+    RewardListSerializer,
+    RewardTransactionSerializer,
+    RewardSerializer,
+)
 from .pagination import CustomPageNumberPagination
 
 # ------------------------------------------
@@ -34,10 +39,22 @@ reward_list_parameters = [
         required=False,
     ),
     OpenApiParameter(
-        name="min_cost", type=OpenApiTypes.INT, description="최소 비용", required=False
+        name="min_cost",
+        type=OpenApiTypes.INT,
+        description="최소 비용",
+        required=False,
     ),
     OpenApiParameter(
-        name="max_cost", type=OpenApiTypes.INT, description="최대 비용", required=False
+        name="max_cost",
+        type=OpenApiTypes.INT,
+        description="최대 비용",
+        required=False,
+    ),
+    OpenApiParameter(
+        name="ordering",
+        type=OpenApiTypes.STR,
+        description="정렬 기준 (cost, is_active)",
+        required=False,
     ),
 ]
 
@@ -123,13 +140,13 @@ error_response_schema = inline_serializer(
             examples=[
                 OpenApiExample(
                     name="Internal Error",
-                    summary="서버 오류",
+                    summary="처리되지 않은 예외 발생",
                     value={
                         "status": "error",
                         "message": "예상치 못한 오류가 발생했습니다.",
-                        "error_code": "REWARD_LIST_FAIL",
+                        "error_code": "INTERNAL_SERVER_ERROR",
                     },
-                )
+                ),
             ],
         ),
     },
@@ -137,67 +154,107 @@ error_response_schema = inline_serializer(
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def reward_list(request):
-    try:
-        is_active = request.query_params.get("is_active")
-        search = request.query_params.get("search")
-        min_cost = request.query_params.get("min_cost")
-        max_cost = request.query_params.get("max_cost")
+    is_active = request.query_params.get("is_active")
+    search = request.query_params.get("search")
+    min_cost = request.query_params.get("min_cost")
+    max_cost = request.query_params.get("max_cost")
+    ordering = request.query_params.get("ordering")
+    DEFAULT_ORDERING = ["-is_active", "cost"]
 
-        rewards = Reward.objects.all()
+    rewards = Reward.objects.all()
 
-        if is_active is not None:
-            if is_active.lower() == "true":
-                rewards = rewards.filter(is_active=True)
-            elif is_active.lower() == "false":
-                rewards = rewards.filter(is_active=False)
-            else:
-                return Response(
-                    {
-                        "status": "error",
-                        "message": "is_active는 true 또는 false여야 합니다.",
-                        "error_code": "INVALID_IS_ACTIVE_PARAM",
-                    },
-                    status=400,
-                )
-
-        if search:
-            rewards = rewards.filter(
-                Q(name__icontains=search) | Q(description__icontains=search)
-            )
-
-        try:
-            if min_cost is not None:
-                rewards = rewards.filter(cost__gte=int(min_cost))
-            if max_cost is not None:
-                rewards = rewards.filter(cost__lte=int(max_cost))
-        except ValueError:
+    if is_active is not None:
+        if is_active.lower() == "true":
+            rewards = rewards.filter(is_active=True)
+        elif is_active.lower() == "false":
+            rewards = rewards.filter(is_active=False)
+        else:
             return Response(
                 {
                     "status": "error",
-                    "message": "min_cost 및 max_cost는 정수여야 합니다.",
-                    "error_code": "INVALID_COST_PARAM",
+                    "message": "is_active는 true 또는 false여야 합니다.",
+                    "error_code": "INVALID_IS_ACTIVE_PARAM",
                 },
                 status=400,
             )
 
-        rewards = rewards.order_by("-is_active", "cost")
-
-        paginator = CustomPageNumberPagination()
-        paginated = paginator.paginate_queryset(rewards, request)
-        serializer = RewardListSerializer(paginated, many=True)
-        return paginator.get_paginated_response(
-            {"status": "success", "data": serializer.data}
+    if search:
+        rewards = rewards.filter(
+            Q(name__icontains=search) | Q(description__icontains=search)
         )
 
-    except Exception as e:
+    try:
+        if min_cost is not None:
+            rewards = rewards.filter(cost__gte=int(min_cost))
+        if max_cost is not None:
+            rewards = rewards.filter(cost__lte=int(max_cost))
+    except ValueError:
         return Response(
             {
                 "status": "error",
-                "message": str(e),
-                "error_code": "REWARD_LIST_FAIL",
+                "message": "min_cost 및 max_cost는 정수여야 합니다.",
+                "error_code": "INVALID_COST_PARAM",
             },
-            status=500,
+            status=400,
         )
+
+    if ordering:
+        fields = [f.strip() for f in ordering.split(",") if f.strip()]
+        try:
+            rewards = rewards.order_by(*fields)
+        except:
+            rewards = rewards.order_by(*DEFAULT_ORDERING)
+    else:
+        rewards = rewards.order_by(*DEFAULT_ORDERING)
+
+    paginator = CustomPageNumberPagination()
+    paginated = paginator.paginate_queryset(rewards, request)
+    serializer = RewardListSerializer(paginated, many=True)
+    return paginator.get_paginated_response(
+        {"status": "success", "data": serializer.data}
+    )
+
+
+# ------------------------------------------
+# 리워드 상세조회
+# ------------------------------------------
+@extend_schema(
+    summary="리워드 상세 조회",
+    # path parameter 정의
+    parameters=[
+        OpenApiParameter(
+            name="reward_id",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH,
+            description="조회할 리워드의 ID",
+            required=True,
+        ),
+    ],
+    responses={
+        200: RewardSerializer,
+        500: OpenApiResponse(
+            response=error_response_schema,
+            description="서버 내부 오류",
+            examples=[
+                OpenApiExample(
+                    name="Internal Error",
+                    summary="처리되지 않은 예외 발생",
+                    value={
+                        "status": "error",
+                        "message": "예상치 못한 오류가 발생했습니다.",
+                        "error_code": "INTERNAL_SERVER_ERROR",
+                    },
+                ),
+            ],
+        ),
+    },
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def reward_detail(request, reward_id):
+    reward = get_object_or_404(Reward, reward_id=reward_id)
+    serializer = RewardSerializer(reward)
+    return Response({"status": "success", "data": serializer.data})
 
 
 # ------------------------------------------
@@ -243,17 +300,17 @@ def reward_list(request):
         ),
         500: OpenApiResponse(
             response=error_response_schema,
-            description="서버 오류",
+            description="서버 내부 오류",
             examples=[
                 OpenApiExample(
-                    name="DB Error",
-                    summary="서버에서 교환 내역 로드 중 오류",
+                    name="Internal Error",
+                    summary="처리되지 않은 예외 발생",
                     value={
                         "status": "error",
-                        "message": "서버에서 리워드 교환 목록을 불러오는 중 오류가 발생했습니다.",
-                        "error_code": "REWARD_TRANSACTION_DB_ERROR",
+                        "message": "예상치 못한 오류가 발생했습니다.",
+                        "error_code": "INTERNAL_SERVER_ERROR",
                     },
-                )
+                ),
             ],
         ),
     },
@@ -261,97 +318,85 @@ def reward_list(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def reward_transaction_list(request):
-    try:
-        status_param = request.query_params.get("status")
-        search = request.query_params.get("search")
-        start_date = request.query_params.get("start_date")
-        end_date = request.query_params.get("end_date")
-        ordering = request.query_params.get("ordering", "-redeemed_at")
+    status_param = request.query_params.get("status")
+    search = request.query_params.get("search")
+    start_date = request.query_params.get("start_date")
+    end_date = request.query_params.get("end_date")
+    ordering = request.query_params.get("ordering", "-redeemed_at")
 
-        transactions = RewardTransaction.objects.select_related("reward").filter(
-            user=request.user
-        )
+    transactions = RewardTransaction.objects.select_related("reward").filter(
+        user=request.user
+    )
 
-        if status_param is not None:
-            try:
-                status_filter = int(status_param)
-                transactions = transactions.filter(status=status_filter)
-            except ValueError:
-                return Response(
-                    {
-                        "status": "error",
-                        "message": "status는 정수여야 합니다.",
-                        "error_code": "INVALID_STATUS_PARAM",
-                    },
-                    status=400,
-                )
-
-        if start_date:
-            parsed_start = parse_date(start_date)
-            if not parsed_start:
-                return Response(
-                    {
-                        "status": "error",
-                        "message": "start_date는 YYYY-MM-DD 형식이어야 합니다.",
-                        "error_code": "INVALID_START_DATE",
-                    },
-                    status=400,
-                )
-            transactions = transactions.filter(redeemed_at__date__gte=parsed_start)
-
-        if end_date:
-            parsed_end = parse_date(end_date)
-            if not parsed_end:
-                return Response(
-                    {
-                        "status": "error",
-                        "message": "end_date는 YYYY-MM-DD 형식이어야 합니다.",
-                        "error_code": "INVALID_END_DATE",
-                    },
-                    status=400,
-                )
-            transactions = transactions.filter(redeemed_at__date__lte=parsed_end)
-
-        if search:
-            transactions = transactions.filter(
-                Q(reward__name__icontains=search)
-                | Q(reward__description__icontains=search)
-            )
-
-        valid_ordering_fields = [
-            "redeemed_at",
-            "-redeemed_at",
-            "expire_at",
-            "-expire_at",
-        ]
-        if ordering not in valid_ordering_fields:
+    if status_param is not None:
+        try:
+            status_filter = int(status_param)
+            transactions = transactions.filter(status=status_filter)
+        except ValueError:
             return Response(
                 {
                     "status": "error",
-                    "message": "허용되지 않은 정렬 기준입니다.",
-                    "error_code": "INVALID_ORDERING_PARAM",
+                    "message": "status는 정수여야 합니다.",
+                    "error_code": "INVALID_STATUS_PARAM",
                 },
                 status=400,
             )
 
-        transactions = transactions.order_by(ordering)
+    if start_date:
+        parsed_start = parse_date(start_date)
+        if not parsed_start:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "start_date는 YYYY-MM-DD 형식이어야 합니다.",
+                    "error_code": "INVALID_START_DATE",
+                },
+                status=400,
+            )
+        transactions = transactions.filter(redeemed_at__date__gte=parsed_start)
 
-        paginator = CustomPageNumberPagination()
-        paginated = paginator.paginate_queryset(transactions, request)
-        serializer = RewardTransactionSerializer(paginated, many=True)
-        return paginator.get_paginated_response(
-            {"status": "success", "data": serializer.data}
+    if end_date:
+        parsed_end = parse_date(end_date)
+        if not parsed_end:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "end_date는 YYYY-MM-DD 형식이어야 합니다.",
+                    "error_code": "INVALID_END_DATE",
+                },
+                status=400,
+            )
+        transactions = transactions.filter(redeemed_at__date__lte=parsed_end)
+
+    if search:
+        transactions = transactions.filter(
+            Q(reward__name__icontains=search) | Q(reward__description__icontains=search)
         )
 
-    except Exception as e:
+    valid_ordering_fields = [
+        "redeemed_at",
+        "-redeemed_at",
+        "expire_at",
+        "-expire_at",
+    ]
+    if ordering not in valid_ordering_fields:
         return Response(
             {
                 "status": "error",
-                "message": str(e),
-                "error_code": "REWARD_TRANSACTION_DB_ERROR",
+                "message": "허용되지 않은 정렬 기준입니다.",
+                "error_code": "INVALID_ORDERING_PARAM",
             },
-            status=500,
+            status=400,
         )
+
+    transactions = transactions.order_by(ordering)
+
+    paginator = CustomPageNumberPagination()
+    paginated = paginator.paginate_queryset(transactions, request)
+    serializer = RewardTransactionSerializer(paginated, many=True)
+    return paginator.get_paginated_response(
+        {"status": "success", "data": serializer.data}
+    )
 
 
 # ------------------------------------------
@@ -393,17 +438,17 @@ def reward_transaction_list(request):
         ),
         500: OpenApiResponse(
             response=error_response_schema,
-            description="서버 오류",
+            description="서버 내부 오류",
             examples=[
                 OpenApiExample(
-                    name="Unexpected Error",
-                    summary="기타 서버 오류",
+                    name="Internal Error",
+                    summary="처리되지 않은 예외 발생",
                     value={
                         "status": "error",
-                        "message": "리워드 교환 기록을 불러오는 중 오류가 발생했습니다.",
-                        "error_code": "REWARD_TRANSACTION_DETAIL_FAIL",
+                        "message": "예상치 못한 오류가 발생했습니다.",
+                        "error_code": "INTERNAL_SERVER_ERROR",
                     },
-                )
+                ),
             ],
         ),
     },
@@ -411,40 +456,19 @@ def reward_transaction_list(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def reward_transaction_detail(request, reward_transaction_id):
-    try:
-        transaction = RewardTransaction.objects.select_related("reward").get(
-            pk=reward_transaction_id
-        )
+    transaction = RewardTransaction.objects.select_related("reward").get(
+        pk=reward_transaction_id
+    )
 
-        if transaction.user != request.user:
-            return Response(
-                {
-                    "status": "error",
-                    "message": "본인의 교환내역만 조회할 수 있습니다.",
-                    "error_code": "REWARD_TRANSACTION_PERMISSION_DENIED",
-                },
-                status=403,
-            )
-
-        serializer = RewardTransactionSerializer(transaction)
-        return Response({"status": "success", "data": serializer.data})
-
-    except RewardTransaction.DoesNotExist:
+    if transaction.user != request.user:
         return Response(
             {
                 "status": "error",
-                "message": "해당 리워드 교환 기록이 존재하지 않습니다.",
-                "error_code": "REWARD_TRANSACTION_NOT_FOUND",
+                "message": "본인의 교환내역만 조회할 수 있습니다.",
+                "error_code": "REWARD_TRANSACTION_PERMISSION_DENIED",
             },
-            status=404,
+            status=403,
         )
 
-    except Exception as e:
-        return Response(
-            {
-                "status": "error",
-                "message": str(e),
-                "error_code": "REWARD_TRANSACTION_DETAIL_FAIL",
-            },
-            status=500,
-        )
+    serializer = RewardTransactionSerializer(transaction)
+    return Response({"status": "success", "data": serializer.data})
