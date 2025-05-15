@@ -1,6 +1,7 @@
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 from django.conf import settings
+from .models import UserProfile
 
 class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     def populate_user(self, request, sociallogin, data):
@@ -18,7 +19,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 profile_image = profile.get('profile_image')
 
                 if nickname:
-                    user.user_nickname = nickname # user_nickname 필드에 저장
+                    user.nickname = nickname  # user_nickname -> nickname으로 수정
                 
                 if profile_image:
                     user.profile_image = profile_image
@@ -26,20 +27,44 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             except (KeyError, AttributeError):
                 pass
 
-        # User 모델의 다른 커스텀 필드 기본값 설정 등 추가 로직 구현 가능
-        # user.user_role = 1 # 예시: 소셜 로그인은 특정 역할 부여 등
-
         return user
 
-    def pre_social_login(self, request, sociallogin):
+    def save_user(self, request, sociallogin, form=None):
         """
-        Invoked just after a user successfully authenticates via a
-        social provider, but before the login is actually processed
-        (and before any accounts are linked/created).
+        Saves the user and creates UserProfile
         """
-        # 이미 가입된 이메일이지만 소셜 계정과는 연결되지 않은 경우 처리 등
-        # 예를 들어, 동일 이메일로 일반 가입한 유저가 소셜 로그인을 시도할 때 연결해주는 로직
-        pass
+        # 먼저 User 객체를 저장
+        user = super().save_user(request, sociallogin, form)
+        
+        # User 객체가 저장된 후에 UserProfile 생성
+        try:
+            # 디버깅을 위한 로그 추가
+            print(f"Attempting to create UserProfile for user: {user.email}")
+            
+            # UserProfile이 이미 존재하는지 확인
+            profile, created = UserProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'level': 1,
+                    'exp': 0,
+                    'mileage': 0,
+                    'average_income': 0.00
+                }
+            )
+            
+            if created:
+                print(f"Successfully created UserProfile for user: {user.email}")
+            else:
+                print(f"UserProfile already exists for user: {user.email}")
+                
+        except Exception as e:
+            print(f"Error creating UserProfile: {str(e)}")
+            # 에러의 구체적인 정보 출력
+            import traceback
+            print(traceback.format_exc())
+            raise  # 에러를 상위로 전파하여 디버깅을 용이하게 함
+        
+        return user
 
 
 class CustomAccountAdapter(DefaultAccountAdapter):
