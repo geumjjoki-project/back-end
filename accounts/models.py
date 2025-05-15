@@ -48,7 +48,6 @@ class User(AbstractUser):
     REQUIRED_FIELDS = [
         "first_name",
         "last_name",
-        "user_nickname",
     ]
     EMAIL_FIELD = "email"
 
@@ -64,9 +63,10 @@ class UserProfile(models.Model):
         primary_key=True,
     )
     # 회원식별자
-    user = models.ForeignKey(
+    user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
+        related_name="user_profile",
     )
     # 레벨
     level = models.IntegerField(
