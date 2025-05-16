@@ -64,6 +64,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "allauth.account.middleware.AccountMiddleware",
@@ -72,7 +73,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = "geumjjoki.urls"
@@ -96,6 +96,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "geumjjoki.wsgi.application"
 
 CORS_ORIGIN_ALLOW_ALL = False
+CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_WHITELIST = ("http://localhost:5173",)  # 프론트 엔드 서버 주소
 
 # Database
