@@ -9,25 +9,59 @@ from django.views.decorators.csrf import csrf_exempt
 from .serializers import UserSerializer
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-
+from .models import UserProfile
 
 
 logger = logging.getLogger('accounts')
+
+@api_view(['GET'])
+def email_duplicate_check(request):
+    # 이메일 중복 체크 기능
+    email = request.GET.get('email')
+    User = get_user_model()
+    user = User.objects.filter(email=email)
+    if user:
+        return Response({
+            'duplication': True
+        })
+    else:
+        return Response({
+            'duplication': False
+        })
+        
 
 @csrf_exempt
 @api_view(['POST'])
 def email_login(request):
     """이메일 로그인 기능, JWT 토큰 발급"""
-    email = request.POST.get('email')
-    password = request.POST.get('password')
-    user = authenticate(request, email=email, password=password)
-    if user is not None:
-        login(request, user)
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-        return redirect(f'http://localhost:5173/auth/email/callback?token={access_token}')
-    else:
-        return redirect('http://localhost:5173/auth/login', {'error': 'Invalid credentials'})
+    User = get_user_model()
+    email = request.data.get('email')
+    password = request.data.get('password')
+    # 먼저 이메일로 사용자가 존재하는지 확인
+    try:
+        user = User.objects.get(email=email)
+        # 기존 사용자 인증
+        user = authenticate(request, email=email, password=password)
+        if user is None:
+            return redirect('http://localhost:5173/auth/login', {'error': '비밀번호가 일치하지 않습니다'})
+    except User.DoesNotExist:
+        # 새 사용자 생성
+        user = User.objects.create_user(email=email, password=password, username=email)
+        # 프로필 생성
+        UserProfile.objects.create(
+            user=user,
+            level=1,
+            exp=0,
+            mileage=0,
+            average_income=0.00
+        )
+    login(request, user)
+    refresh = RefreshToken.for_user(user)
+    access_token = str(refresh.access_token)
+    return Response({
+        'token': access_token
+    })
+    # return redirect(f'http://localhost:5173/auth/callback?token={access_token}')
 
 @csrf_exempt
 @api_view(['POST'])
@@ -44,7 +78,8 @@ def email_signup(request):
     login(request, user)
     refresh = RefreshToken.for_user(user)
     access_token = str(refresh.access_token)
-    return redirect(f'http://localhost:5173/auth/email/callback?token={access_token}')
+    return redirect(f'http://localhost:5173/auth/callback?token={access_token}')
+
 
 @api_view(['GET'])
 def kakao_login(request):
@@ -76,7 +111,7 @@ def social_login_callback(request):
         logger.debug(f"Generated token for user: {request.user.email}")
         
         # 프론트엔드로 토큰과 함께 리디렉션
-        frontend_url = f'http://localhost:5173/auth/kakao/callback?token={access_token}'
+        frontend_url = f'http://localhost:5173/auth/callback?token={access_token}'
         logger.debug(f"Redirecting to frontend with token: {frontend_url}")
         return HttpResponseRedirect(frontend_url)
     
