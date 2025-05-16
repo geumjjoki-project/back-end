@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework import status
 from django.utils.dateparse import parse_date
 from django.db.models import Q, Sum
@@ -17,6 +17,7 @@ from drf_spectacular.utils import (
 from .pagination import CustomPageNumberPagination
 from .models import Expense, ExpenseAnalysis, Category
 from .serializers import ExpenseSerializer, ErrorResponseSerializer
+from collections import defaultdict
 
 
 @extend_schema(
@@ -147,10 +148,10 @@ from .serializers import ExpenseSerializer, ErrorResponseSerializer
     ],
 )
 @api_view(["GET"])
-# @permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def index(request):
-    # expenses = Expense.objects.filter(user=request.user)
-    expenses = Expense.objects.all()  # 테스트용 전체 조회
+    expenses = Expense.objects.filter(user=request.user)
+    # expenses = Expense.objects.all()  # 테스트용 전체 조회
 
     # 쿼리 파라미터
     start_date = request.query_params.get("start_date")
@@ -233,3 +234,41 @@ def index(request):
             },
         }
     )
+    
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def detail(request, expense_id):
+    try:
+        expense = Expense.objects.get(user=request.user, expense_id=expense_id)
+    except Expense.DoesNotExist:
+        raise NotFound(detail="지출 내역을 찾을 수 없습니다.", code="NOT_FOUND")
+    
+    serializer = ExpenseSerializer(expense)
+    return Response({
+        "status": "success",
+        "data": serializer.data
+    })
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def summary(request):
+    expenses = Expense.objects.filter(user=request.user)
+    # (테스트용 전체 조회시) expenses = Expense.objects.all()
+    
+    summary_dict = defaultdict(float)
+    for expense in expenses:
+        root = expense.root_category  # property, 최상위 카테고리 객체
+        root_name = root.name if root else "미분류"
+        summary_dict[root_name] += float(expense.amount)
+    
+    category_summary = [
+        {"parent": name, "amount": round(amount)}
+        for name, amount in summary_dict.items()
+    ]
+
+    total_amount = round(sum(summary_dict.values()))
+    
+    return Response({
+        "total_amount": total_amount,
+        "category_summary": category_summary,
+    })
