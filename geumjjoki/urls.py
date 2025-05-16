@@ -37,6 +37,7 @@ urlpatterns = [
     path("api/v1/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/v1/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     # 챌린지 관리
+    path("api/v1/challenges/", include("challenges.urls")),
     # 지출 관리
     path("api/v1/expenses/", include("expenses.urls")),
     # 리워드 관리
