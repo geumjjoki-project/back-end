@@ -2,7 +2,9 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 from django.conf import settings
 from .models import UserProfile
+import logging
 
+logger = logging.getLogger('accounts')
 class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     def populate_user(self, request, sociallogin, data):
         """
@@ -16,14 +18,20 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 kakao_account = sociallogin.account.extra_data.get('kakao_account')
                 profile = kakao_account.get('profile')
                 nickname = profile.get('nickname')
-                profile_image = profile.get('profile_image')
-
+                profile_image = profile.get('profile_image_url')
+                email = kakao_account.get('email')
+                logger.debug(f"kakao_account: {kakao_account}")
+                
                 if nickname:
                     user.nickname = nickname  # user_nickname -> nickname으로 수정
                 
                 if profile_image:
                     user.profile_image = profile_image
-
+                
+                if email:
+                    user.email = email
+                
+                
             except (KeyError, AttributeError):
                 pass
 
