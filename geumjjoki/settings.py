@@ -211,7 +211,7 @@ NAVER_SECRET_KEY = os.getenv("NAVER_SECRET_KEY")
 SOCIALACCOUNT_PROVIDERS = {
     "kakao": {
         "APP": {"client_id": KAKAO_REST_API_KEY, "secret": "1232345", "key": ""},
-        "SCOPE": ["profile_nickname"],
+        "SCOPE": ["profile_nickname, profile_image, account_email, name"],
         "AUTH_PARAMS": {"prompt": "login"},
     },
     "naver": {
