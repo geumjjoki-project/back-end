@@ -89,6 +89,12 @@ def kakao_login(request):
     # 로그인 완료시 자동으로 allauth 에서 지정한 http://localhost:8000/accounts/kakao/login/callback/ 페이지로 리디렉션
     # adapter.py 실행 후 settings.py 에 지정한 LOGIN_REDIRECT_URL로 리디렉션
 
+@api_view(['GET'])
+def naver_login(request):
+    """사용자를 네이버 로그인 페이지로 리디렉션"""
+    # allauth 자동 지정 로그인 페이지
+    return redirect('/accounts/naver/login/')
+
 @csrf_exempt
 def social_login_callback(request):
     """

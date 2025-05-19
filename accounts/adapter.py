@@ -12,7 +12,10 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         user = super().populate_user(request, sociallogin, data)
 
-        # 추가 정보 가져오기 (카카오 예시)
+        nickname = None
+        profile_image = None
+        email = None
+        # 추가 정보 가져오기
         if sociallogin.account.provider == 'kakao':
             try:
                 kakao_account = sociallogin.account.extra_data.get('kakao_account')
@@ -21,20 +24,25 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 profile_image = profile.get('profile_image_url')
                 email = kakao_account.get('email')
                 logger.debug(f"kakao_account: {kakao_account}")
-                
-                if nickname:
-                    user.nickname = nickname  # user_nickname -> nickname으로 수정
-                
-                if profile_image:
-                    user.profile_image = profile_image
-                
-                if email:
-                    user.email = email
-                
-                
             except (KeyError, AttributeError):
                 pass
-
+        
+        elif sociallogin.account.provider == 'naver':
+            try:
+                naver_response = sociallogin.account.extra_data
+                nickname = naver_response.get('nickname')
+                profile_image = naver_response.get('profile_image')
+            except (KeyError, AttributeError):
+                pass
+        if nickname:
+            user.nickname = nickname  # user_nickname -> nickname으로 수정
+        
+        if profile_image:
+            user.profile_image = profile_image
+        
+        if email:
+            user.email = email
+            
         return user
 
     def save_user(self, request, sociallogin, form=None):

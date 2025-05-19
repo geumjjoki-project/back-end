@@ -7,6 +7,7 @@ urlpatterns = [
     # allauth URL은 그대로 유지
     # 직접 카카오 로그인 시작 URL
     path('kakao-login/', views.kakao_login, name='kakao_login'),
+    path('naver-login/', views.naver_login, name='naver_login'),
     # 소셜 로그인 성공 후 콜백 URL
     path('login/callback/', views.social_login_callback, name='login_callback'),
     path('email-login/', views.email_login, name='email_login'),
