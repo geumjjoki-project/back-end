@@ -6,7 +6,6 @@ from challenges.models import UserChallenge
 # Create your models here.
 # 카테고리
 class Category(models.Model):
-    ##################################################
     # 카테고리식별자
     category_id = models.BigAutoField(
         primary_key=True,
@@ -21,7 +20,6 @@ class Category(models.Model):
     )
     # 이름
     name = models.CharField(max_length=100)
-    ##################################################
 
     # 카테고리의 이름을 표시
     def __str__(self):
@@ -36,7 +34,6 @@ class Category(models.Model):
 
 # 지출내역
 class Expense(models.Model):
-    ##################################################
     # 지출내역식별자
     expense_id = models.BigAutoField(
         primary_key=True,
@@ -76,7 +73,6 @@ class Expense(models.Model):
         blank=True,
         related_name="expense",
     )
-    ##################################################
 
     @property
     # 최상위 카테고리를 반환
@@ -95,7 +91,6 @@ class Expense(models.Model):
 
 # 지출내역분석
 class ExpenseAnalysis(models.Model):
-    ##################################################
     # 지출내역분석식별자
     expense_analysis_id = models.BigAutoField(
         primary_key=True,
@@ -111,4 +106,3 @@ class ExpenseAnalysis(models.Model):
     )
     # 내용
     content = models.TextField()
-    ##################################################
