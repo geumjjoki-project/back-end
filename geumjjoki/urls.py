@@ -54,4 +54,6 @@ urlpatterns = [
         SpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
     ),
+    # 게시글 관리
+    path("api/v1/articles/", include("articles.urls")),
 ]
