@@ -76,7 +76,7 @@ class Command(BaseCommand):
         # username이 user로 시작하면서 프로필이 없는 회원의 프로필 생성
         user_query = User.objects.filter(
             username__startswith="user",
-            userprofile__isnull=True,
+            user_profile__isnull=True,
         )
         profiles = [
             UserProfile(
