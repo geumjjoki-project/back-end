@@ -144,7 +144,7 @@ class ReplySerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            "reply_id",
+            "comment_id",
             "content",
             "author",
             "author_profile_image",
