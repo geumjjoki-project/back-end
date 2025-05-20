@@ -24,6 +24,7 @@ class Article(models.Model):
     )
     # 내용
     content = models.TextField()
+    
     # 생성일시
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -31,6 +32,10 @@ class Article(models.Model):
     # 수정일시
     updated_at = models.DateTimeField(
         auto_now=True,
+    )
+    # 조회 수
+    views = models.IntegerField(
+        default=0,
     )
     ##################################################
 
@@ -69,14 +74,21 @@ class Comment(models.Model):
     # 게시글식별자
     article = models.ForeignKey(
         Article,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
+        related_name="comments",
     )
     # 작성자
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
+    )
+    # 대댓글
+    parent_comment = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
     )
     # 내용
     content = models.TextField()
@@ -89,3 +101,32 @@ class Comment(models.Model):
         auto_now=True,
     )
     ##################################################
+
+
+# 게시글 좋아요
+class ArticleLike(models.Model):
+    ##################################################
+    # 좋아요식별자
+    like_id = models.BigAutoField(
+        primary_key=True,
+    )
+    # 게시글식별자
+    article = models.ForeignKey(
+        Article,
+        on_delete=models.CASCADE,
+        related_name="likes",
+    )
+    # 사용자식별자
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="article_likes",
+    )
+    # 생성일시
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+    ##################################################
+
+    class Meta:
+        unique_together = ('article', 'user')  # 한 사용자는 한 게시글에 한 번만 좋아요 가능
