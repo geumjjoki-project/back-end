@@ -1,9 +1,9 @@
 from django.shortcuts import render
-from django.views import View
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Article, Comment
 from .serializers import ArticleListSerializer, ArticleCreatePutSerializer, ArticleDetailSerializer, CommentSerializer, CommentCreatePutSerializer
 from django.db.models import Q
@@ -12,11 +12,13 @@ from django.core.paginator import Paginator
 from rest_framework import serializers
 
 
-# Create your views here.
-class ArticleView(View):
-    authentication_classes = [TokenAuthentication]  # 사용하는 인증 방식에 따라 다름
+class ArticleBaseView(APIView):
+    authentication_classes = [JWTAuthentication]  # 사용하는 인증 방식에 따라 다름
     permission_classes = [IsAuthenticated]  # 인증된 사용자만 접근 가능
 
+# Create your views here.
+class ArticleView(ArticleBaseView):
+    
     # 게시글 목록 조회 api
     def get(self, request):
         try:
@@ -151,14 +153,13 @@ class ArticleView(View):
                     "status": "error",
                     "message": "서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
                     "code": "500",
+                    "error": str(e),
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
-class ArticleDetailView(View):
-    authentication_classes = [TokenAuthentication]  # 사용하는 인증 방식에 따라 다름
-    permission_classes = [IsAuthenticated]  # 인증된 사용자만 접근 가능
+class ArticleDetailView(ArticleBaseView):
 
     # 게시글 상세 조회 api
     def get(self, request, article_id):
@@ -281,9 +282,7 @@ class ArticleDetailView(View):
             )
 
 
-class CommentView(View):
-    authentication_classes = [TokenAuthentication]  # 사용하는 인증 방식에 따라 다름
-    permission_classes = [IsAuthenticated]  # 인증된 사용자만 접근 가능
+class CommentView(ArticleBaseView):
 
     # 댓글 목록 조회 api
     def get(self, request, article_id):
@@ -318,6 +317,7 @@ class CommentView(View):
                     "status": "error",
                     "message": "서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
                     "code": "500",
+                    "error": str(e),
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

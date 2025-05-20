@@ -76,6 +76,8 @@ class Comment(models.Model):
         Article,
         on_delete=models.CASCADE,
         related_name="comments",
+        null=True,
+        blank=True,
     )
     # 작성자
     user = models.ForeignKey(
