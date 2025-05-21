@@ -6,7 +6,7 @@ from accounts.models import User, UserProfile
 
 
 class Command(BaseCommand):
-    help = "[이름: user{i}, 이메일: user{i}@example.com]의 정보로 비밀번호와 유저의 수를 지정해 그 수만큼 유저와 프로필을 생성"
+    help = "[이름: user{i}, 이메일: user{i}@test.com]의 정보로 비밀번호와 유저의 수를 지정해 그 수만큼 유저와 프로필을 생성"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -38,7 +38,7 @@ class Command(BaseCommand):
 
         # 이미 생성된 이메일 스킵
         existing_emails = set(
-            User.objects.filter(email__endswith="@example.com").values_list(
+            User.objects.filter(email__endswith="@test.com").values_list(
                 "email",
                 flat=True,
             )
@@ -48,7 +48,7 @@ class Command(BaseCommand):
 
         users_to_create = []
         for i in range(1, count + 1):
-            email = f"user{i}@example.com"
+            email = f"user{i}@test.com"
             if email in existing_emails:
                 continue
             users_to_create.append(
@@ -76,7 +76,7 @@ class Command(BaseCommand):
         # username이 user로 시작하면서 프로필이 없는 회원의 프로필 생성
         user_query = User.objects.filter(
             username__startswith="user",
-            userprofile__isnull=True,
+            user_profile__isnull=True,
         )
         profiles = [
             UserProfile(

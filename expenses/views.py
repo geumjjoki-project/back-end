@@ -18,7 +18,7 @@ from .pagination import CustomPageNumberPagination
 from .models import Expense, ExpenseAnalysis, Category
 from .serializers import ExpenseSerializer, ErrorResponseSerializer
 from collections import defaultdict
-
+from datetime import date
 
 @extend_schema(
     summary="지출 내역 목록 조회",
@@ -252,23 +252,49 @@ def detail(request, expense_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def summary(request):
-    expenses = Expense.objects.filter(user=request.user)
-    # (테스트용 전체 조회시) expenses = Expense.objects.all()
+    user = request.user
+    year = int(request.GET.get("year", date.today().year))
+    month = int(request.GET.get("month", date.today().month))
     
-    summary_dict = defaultdict(float)
-    for expense in expenses:
-        root = expense.root_category  # property, 최상위 카테고리 객체
-        root_name = root.name if root else "미분류"
-        summary_dict[root_name] += float(expense.amount)
+    if month == 1:
+        prev_month = 12
+        prev_year = year - 1
+    else:
+        prev_month = month - 1
+        prev_year = year
     
-    category_summary = [
-        {"parent": name, "amount": round(amount)}
-        for name, amount in summary_dict.items()
-    ]
+    expenses_this = Expense.objects.filter(user=user, date__year=year, date__month=month)
+    expenses_prev = Expense.objects.filter(user=user, date__year=prev_year, date__month=prev_month)
+    
+    def summarize(expenses):
+        summary_dict = defaultdict(float)
+        for expense in expenses:
+            root = expense.root_category
+            root_name = root.name if root else "미분류"
+            summary_dict[root_name] += float(expense.amount)
+        
+        category_summary = [
+            {"parent": name, "amount": round(amount)}
+            for name, amount in summary_dict.items()
+        ]
 
-    total_amount = round(sum(summary_dict.values()))
+        total_amount = round(sum(summary_dict.values()))
+        return total_amount, category_summary
     
+    total_this, category_this = summarize(expenses_this)
+    total_prev, category_prev = summarize(expenses_prev)
+        
     return Response({
-        "total_amount": total_amount,
-        "category_summary": category_summary,
+        "current_month": {
+            "year": year,
+            "month": month,
+            "total_amount": total_this,
+            "category_summary": category_this,
+        },
+        "previous_month": {
+            "year": prev_year,
+            "month": prev_month,
+            "total_amount": total_prev,
+            "category_summary": category_prev,
+        }
     })
