@@ -377,7 +377,7 @@ class CommentView(ArticleBaseView):
                     content=content
                 )
 
-            serializer = CommentCreatePutSerializer(comment, context={'request': request})
+            serializer = CommentSerializer(comment, context={'request': request})
             
             response_data = {
                 "status": "success",
