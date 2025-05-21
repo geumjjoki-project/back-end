@@ -139,6 +139,12 @@ class CommentLike(models.Model):
     like_id = models.BigAutoField(
         primary_key=True,
     )
+    # 사용자식별자
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="comment_likes",
+    )
     # 댓글식별자
     comment = models.ForeignKey(
         Comment,
