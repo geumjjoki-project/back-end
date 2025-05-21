@@ -67,3 +67,15 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "category",
             "description",
         )
+
+class ExpenseWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Expense
+        fields = ("date", "amount", "category", "description")
+        
+class CategorySerializer(serializers.ModelSerializer):
+    parent = serializers.CharField(source='parent_category.name', allow_null=True)
+
+    class Meta:
+        model = Category
+        fields = ['category_id', 'name', 'parent']
