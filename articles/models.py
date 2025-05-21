@@ -128,7 +128,28 @@ class ArticleLike(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
-    ##################################################
 
     class Meta:
         unique_together = ('article', 'user')  # 한 사용자는 한 게시글에 한 번만 좋아요 가능
+    ##################################################
+
+class CommentLike(models.Model):
+    ##################################################
+    # 좋아요식별자
+    like_id = models.BigAutoField(
+        primary_key=True,
+    )
+    # 댓글식별자
+    comment = models.ForeignKey(
+        Comment,
+        on_delete=models.CASCADE,
+        related_name="likes",
+    )
+    # 생성일시
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    ) 
+    
+    class Meta:
+        unique_together = ('comment', 'user')  # 한 사용자는 한 댓글에 한 번만 좋아요 가능
+    ##################################################

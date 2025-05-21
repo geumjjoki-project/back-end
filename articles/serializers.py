@@ -137,9 +137,22 @@ class ReplySerializer(serializers.ModelSerializer):
     author = serializers.CharField(source="user.nickname", read_only=True)
     author_profile_image = serializers.CharField(source="user.profile_image", read_only=True)
     time_ago = serializers.SerializerMethodField()
+    likes_count = serializers.IntegerField(source="likes.count", read_only=True)
+    is_liked = serializers.SerializerMethodField()
     
     def get_time_ago(self, obj):
         return obj.created_at.strftime("%m/%d %H:%M")
+    
+    def get_is_liked(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return False
+            
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        
+        return obj.likes.filter(user=user).exists()
     
     class Meta:
         model = Comment
@@ -149,6 +162,8 @@ class ReplySerializer(serializers.ModelSerializer):
             "author",
             "author_profile_image",
             "time_ago",
+            "likes_count",
+            "is_liked",
         ]
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -156,6 +171,8 @@ class CommentSerializer(serializers.ModelSerializer):
     author_profile_image = serializers.CharField(source="user.profile_image", read_only=True)
     time_ago = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
+    likes_count = serializers.IntegerField(source="likes.count", read_only=True)
+    is_liked = serializers.SerializerMethodField()
     
     def get_replies(self, obj):
         replies = obj.replies.all()
@@ -164,12 +181,25 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_time_ago(self, obj):
         return obj.created_at.strftime("%m/%d %H:%M")
     
+    def get_is_liked(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return False
+            
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        
+        return obj.likes.filter(user=user).exists()
+        
     class Meta:
         model = Comment
         fields = [
             "comment_id",
             "content",
             "author",
+            "likes_count",
+            "is_liked",
             "author_profile_image",
             "time_ago",
             "replies",
