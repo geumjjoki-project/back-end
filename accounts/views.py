@@ -10,7 +10,9 @@ from .serializers import UserSerializer
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import UserProfile
-
+from rest_framework import status
+from .utils import response
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
 logger = logging.getLogger('accounts')
 
@@ -21,13 +23,13 @@ def email_duplicate_check(request):
     User = get_user_model()
     user = User.objects.filter(email=email)
     if user:
-        return Response({
-            'duplication': True
-        })
+        return response.ok(
+            data={'duplication': True}
+        )
     else:
-        return Response({
-            'duplication': False
-        })
+        return response.ok(
+            data={'duplication': False}
+        )
         
 
 @csrf_exempt
@@ -43,7 +45,10 @@ def email_login(request):
         # 기존 사용자 인증
         user = authenticate(request, email=email, password=password)
         if user is None:
-            return redirect('http://localhost:5173/auth/login', {'error': '비밀번호가 일치하지 않습니다'})
+            return response.error(
+                message='비밀번호가 일치하지 않습니다.',
+                code=status.HTTP_400_BAD_REQUEST
+            )
     except User.DoesNotExist:
         # 새 사용자 생성
         user = User.objects.create_user(email=email, password=password, username=email)
@@ -58,8 +63,10 @@ def email_login(request):
     login(request, user)
     refresh = RefreshToken.for_user(user)
     access_token = str(refresh.access_token)
+    refresh_token = str(refresh)
     return Response({
-        'token': access_token
+        'access_token': access_token,
+        'refresh_token': refresh_token
     })
     # return redirect(f'http://localhost:5173/auth/callback?token={access_token}')
 
@@ -73,12 +80,28 @@ def email_signup(request):
     username = request.POST.get('username')
     password_confirm = request.POST.get('password_confirm')
     if password != password_confirm:
-        return redirect('http://localhost:5173/auth/signup', {'error': '비밀번호가 일치하지 않습니다.'})
+        return response.error(
+            message='비밀번호가 일치하지 않습니다.',
+            code=status.HTTP_400_BAD_REQUEST
+        )
     user = User.objects.create_user(email=email, password=password, username=username)
+    UserProfile.objects.create(
+        user=user,
+        level=1,
+        exp=0,
+        mileage=0,
+        average_income=0.00
+    )
     login(request, user)
     refresh = RefreshToken.for_user(user)
     access_token = str(refresh.access_token)
-    return redirect(f'http://localhost:5173/auth/callback?token={access_token}')
+    refresh_token = str(refresh)
+    return response.ok(
+        data={
+            'access_token': access_token,
+            'refresh_token': refresh_token
+        }
+    )
 
 
 @api_view(['GET'])
@@ -103,8 +126,9 @@ def social_login_callback(request):
     try:
         # 사용자가 인증되었다면 JWT 토큰 생성
         if not request.user.is_authenticated:
-            logger.error("User is not authenticated")
-            return HttpResponseRedirect('http://localhost:5173/auth/login')
+            error_message = "인증 되지 않은 사용자 입니다."
+            logger.error(error_message)
+            return HttpResponseRedirect(f'http://localhost:5173/auth/login?error={error_message}')
             
         # 사용자 정보 로깅
         logger.debug(f"Authenticated user: {request.user.email}, ID: {request.user.id}")
@@ -112,12 +136,12 @@ def social_login_callback(request):
         # JWT 토큰 생성
         refresh = RefreshToken.for_user(request.user)
         access_token = str(refresh.access_token)
-        
+        refresh_token = str(refresh)
         # 토큰 생성 확인을 위한 로깅
         logger.debug(f"Generated token for user: {request.user.email}")
         
         # 프론트엔드로 토큰과 함께 리디렉션
-        frontend_url = f'http://localhost:5173/auth/callback?token={access_token}'
+        frontend_url = f'http://localhost:5173/auth/callback?access_token={access_token}&refresh_token={refresh_token}'
         logger.debug(f"Redirecting to frontend with token: {frontend_url}")
         return HttpResponseRedirect(frontend_url)
     
@@ -130,17 +154,29 @@ def social_login_callback(request):
 
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
 def logout(request):
     """로그아웃 기능 jwt 토큰 삭제"""
     try:
-        # Django 세션에서 로그아웃
+        # Django 세션 로그아웃 추가
         auth_logout(request)
-        # 프론트엔드로 리디렉션
-        return redirect('http://localhost:5173/auth/login')
+        
+        # 현재 사용자의 refresh 토큰을 블랙리스트에 추가
+        refresh_token = request.data.get('refresh_token')
+        if refresh_token:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        
+        return response.ok(
+            message='로그아웃 성공',
+            code=status.HTTP_200_OK
+        )
+        
     except Exception as e:
         logger.error(f"Error in logout: {e}")
-        return redirect('http://localhost:5173/auth/login')
+        return response.error(
+            message='로그아웃 실패',
+            code=status.HTTP_400_BAD_REQUEST
+        )
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -156,9 +192,54 @@ def get_user(request):
         logger.debug(f"User ID: {request.user.id}")
         
         serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+        return response.ok(
+            data=serializer.data
+        )
     except Exception as e:
         logger.error(f"Error in get_user: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        return Response({"error": str(e)}, status=500)
+        return response.error(
+            message=str(e),
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@csrf_exempt
+@api_view(['POST'])
+def refresh_token(request):
+    refresh_token = request.data.get('refresh')
+    if not refresh_token:
+        return response.error(
+            message='refresh 토큰이 제공되지 않았습니다.',
+            code=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        token = RefreshToken(refresh_token)
+        jti = token['jti']
+        try:
+            outstanding_token = OutstandingToken.objects.get(jti=jti)
+            # 블랙리스트 여부는 BlacklistedToken에서 확인!
+            if BlacklistedToken.objects.filter(token=outstanding_token).exists():
+                return response.error(
+                    message='유효하지 않은 refresh 토큰입니다.',
+                    code=status.HTTP_401_UNAUTHORIZED
+                )
+        except OutstandingToken.DoesNotExist:
+            return response.error(
+                message='존재하지 않는 refresh 토큰입니다.',
+                code=status.HTTP_401_UNAUTHORIZED
+            )
+        access_token = str(token.access_token)
+        return response.ok(
+            data={
+                'access_token': access_token
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error in refresh_token: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return response.error(
+            message=str(e),
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
