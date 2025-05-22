@@ -6,7 +6,6 @@ from django.conf import settings
 
 # 챌린지주최자
 class ChallengeHost(models.Model):
-    ##################################################
     # 챌린지주최자식별자
     challenge_host_id = models.BigAutoField(
         primary_key=True,
@@ -20,12 +19,10 @@ class ChallengeHost(models.Model):
     company_name = models.TextField()
     # 전화번호
     phone_number = models.TextField()
-    ##################################################
 
 
 # 챌린지
 class Challenge(models.Model):
-    ##################################################
     # 챌린지식별자
     challenge_id = models.BigAutoField(
         primary_key=True,
@@ -43,8 +40,11 @@ class Challenge(models.Model):
     )
     # 내용
     content = models.TextField()
-    # 상태
-    # 진행중, 예정, 종료, 중지
+    # 카테고리
+    category = models.ForeignKey("expenses.Category", on_delete=models.SET_NULL, null=True, blank=True, related_name="challenges")
+    # 보상 마일리지
+    reward_mileage = models.PositiveIntegerField()
+    # 상태: 진행중, 예정, 종료, 중지
     status = models.CharField(
         max_length=20,
         default="예정",
@@ -53,12 +53,10 @@ class Challenge(models.Model):
     start_date = models.DateTimeField()
     # 종료일
     end_date = models.DateTimeField()
-    ##################################################
 
 
 # 나의챌린지
 class UserChallenge(models.Model):
-    ##################################################
     # 나의챌린지식별자
     user_challenge_id = models.BigAutoField(primary_key=True)
     # 회원식별자
@@ -99,4 +97,3 @@ class UserChallenge(models.Model):
     status = models.CharField(
         max_length=20,
     )
-    ##################################################
