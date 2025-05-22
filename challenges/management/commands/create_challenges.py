@@ -1,84 +1,106 @@
 import random
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.core.management.base import BaseCommand
-from django.utils.timezone import make_aware, now
+from django.utils.timezone import now
 
 from challenges.models import Challenge
 from expenses.models import Category
 
 CATEGORY_NAMES = ["술·담배", "옷", "외식·숙박", "여가"]
 
-def generate_challenge_period(goal_days):
-    """
-    목표일수에 따라 운영기간 생성
-    - 7일 목표 → 약 30일 운영
-    - 28일 목표 → 약 90일 운영
-    """
+CHALLENGE_PRESETS = [
+    {"goal_days": 7, "goal_amount": 10000, "point": 50},
+    {"goal_days": 7, "goal_amount": 30000, "point": 150},
+    {"goal_days": 7, "goal_amount": 50000, "point": 250},
+    {"goal_days": 28, "goal_amount": 100000, "point": 500},
+    {"goal_days": 28, "goal_amount": 200000, "point": 1000},
+]
+
+STATE_DISTRIBUTION = {
+    "예정": 6,
+    "도전가능": 6,
+    "도전불가": 2,
+    "종료": 6,
+}
+
+def assign_states_fixed(total, state_distribution):
+    state_pool = []
+    for state, count in state_distribution.items():
+        state_pool += [state] * count
+    random.shuffle(state_pool)
+    return state_pool
+
+def generate_period_by_status(goal_days, state):
     period_length = 29 if goal_days == 7 else 89
-    start_offset = random.randint(-5, 5)  # 현재 기준 ±5일 내에서 시작
-    start_date = make_aware(datetime.now() + timedelta(days=start_offset))
+    today = now()
+
+    if state == "예정":
+        start_date = today + timedelta(days=random.randint(5, 15))
+    elif state == "도전가능":
+        start_date = today - timedelta(days=random.randint(1, goal_days - 3))
+    elif state == "도전불가":
+        end_date = today + timedelta(days=random.randint(1, 2))
+        start_date = end_date - timedelta(days=goal_days - 1)
+        return start_date, end_date
+    else:  # 종료
+        start_date = today - timedelta(days=goal_days + random.randint(5, 30))
+
+    start_date = start_date
     end_date = start_date + timedelta(days=period_length)
     return start_date, end_date
 
-def determine_status(start, end, current_time):
-    """현재 시각 기준으로 챌린지 상태 결정"""
-    if current_time < start:
-        return "예정"
-    elif start <= current_time <= end:
-        return "진행중"
-    else:
-        return "종료"
-
 class Command(BaseCommand):
-    help = "카테고리별로 챌린지 더미 데이터를 생성합니다."
-
-    def add_arguments(self, parser):
-        parser.add_argument(
-            '--count',
-            type=int,
-            default=3,
-            help='카테고리별 생성할 챌린지 수 (기본값: 3)'
-        )
+    help = "챌린지 더미 데이터를 생성합니다 (computed_status 테스트 포함)"
 
     def handle(self, *args, **options):
-        count = options['count']
         categories = {}
-
         for name in CATEGORY_NAMES:
             try:
-                category = Category.objects.get(name=name)
-                categories[name] = category
+                categories[name] = Category.objects.get(name=name)
             except Category.DoesNotExist:
-                self.stdout.write(self.style.WARNING(f"[{name}] 카테고리를 찾을 수 없습니다."))
+                self.stdout.write(self.style.WARNING(f"{name} 카테고리를 찾을 수 없습니다."))
 
         if not categories:
-            self.stdout.write(self.style.ERROR("유효한 카테고리가 없습니다. 챌린지를 생성할 수 없습니다."))
+            self.stdout.write(self.style.ERROR("카테고리를 찾을 수 없어 챌린지를 생성할 수 없습니다."))
             return
 
-        current_time = now()
-        total_created = 0
-
+        targets = []
         for name, category in categories.items():
-            for i in range(count):
-                # 목표일수 선택: 7일 또는 28일
-                goal_days = random.choice([7, 28])
-                start_date, end_date = generate_challenge_period(goal_days)
-                status = determine_status(start_date, end_date, current_time)
-                point = random.choice([i for i in range(100, 1001, 100)])
+            for preset in CHALLENGE_PRESETS:
+                targets.append({
+                    "category_name": name,
+                    "category": category,
+                    "goal_days": preset["goal_days"],
+                    "goal_amount": preset["goal_amount"],
+                    "point": preset["point"],
+                })
 
-                title_suffix = "일주일" if goal_days == 7 else "한 달"
-                challenge = Challenge.objects.create(
-                    title=f"[{name}] {title_suffix} 소비 줄이기 챌린지 #{i+1}",
-                    content=f"{name} 소비를 {title_suffix} 동안 줄여보세요!",
-                    category=category,
-                    point=point,
-                    goal_days=goal_days,
-                    status=status,
-                    start_date=start_date,
-                    end_date=end_date,
-                )
-                self.stdout.write(self.style.SUCCESS(f"{name} #{i+1} [{status}] 생성됨: {challenge.title}"))
-                total_created += 1
+        state_pool = assign_states_fixed(len(targets), STATE_DISTRIBUTION)
 
-        self.stdout.write(self.style.SUCCESS(f"✅ 총 {total_created}개의 챌린지가 생성되었습니다."))
+        total_created = 0
+        for i, data in enumerate(targets):
+            raw_status = state_pool[i]
+            start_date, end_date = generate_period_by_status(data["goal_days"], raw_status)
+
+            title_suffix = "일주일" if data["goal_days"] == 7 else "한 달"
+            content = f"{data['category_name']} 지출을 {title_suffix} 동안 {data['goal_amount']:,}원 이하로 줄이기"
+
+            challenge = Challenge.objects.create(
+                title=f"[{data['category_name']}] {title_suffix} 소비 줄이기 - {data['goal_amount'] // 10000}만원",
+                content=content,
+                category=data["category"],
+                goal_amount=data["goal_amount"],
+                point=data["point"],
+                goal_days=data["goal_days"],
+                is_active=True,
+                start_date=start_date,
+                end_date=end_date,
+            )
+
+            self.stdout.write(self.style.SUCCESS(
+                f"{challenge.title} | 테스트 상태: {raw_status} | 실제 상태: {challenge.computed_status} | 기간: {start_date.date()} ~ {end_date.date()}"
+            ))
+            total_created += 1
+
+        self.stdout.write(self.style.SUCCESS(f"\n✅ 총 {total_created}개의 챌린지가 생성되었습니다."))
