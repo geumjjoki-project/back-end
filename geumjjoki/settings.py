@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     # 커스텀 앱
     "accounts",
     "articles",
-    "expenses",
+    'expenses.apps.ExpensesConfig',
     "challenges",
     "rewards",
     # 서드파티 앱
@@ -177,6 +177,8 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
     "EXCEPTION_HANDLER": "geumjjoki.exceptions.custom_exception_handler",  # 예외처리
 }
 

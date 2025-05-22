@@ -2,9 +2,15 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+from django.utils.timezone import now
 
 # Create your models here.
 
+STATUS_CHOICES = [
+    ("도전중", "도전중"),
+    ("성공", "성공"),
+    ("실패", "실패"),
+]
 
 # 챌린지주최자
 class ChallengeHost(models.Model):
@@ -42,22 +48,42 @@ class Challenge(models.Model):
     )
     # 내용
     content = models.TextField()
+    # 목표 지출
+    goal_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
     # 카테고리
     category = models.ForeignKey("expenses.Category", on_delete=models.SET_NULL, null=True, blank=True, related_name="challenges")
     # 보상 마일리지
     point = models.PositiveIntegerField()
-    # 상태: 진행중, 예정, 종료, 중지
-    status = models.CharField(
-        max_length=20,
-        default="예정",
-    )
     # 목표 기간
     goal_days = models.PositiveIntegerField()
     # 시작일
     start_date = models.DateTimeField()
     # 종료일
     end_date = models.DateTimeField()
+    # 활성화 여부
+    is_active = models.BooleanField(default=True)
+    # 생성일
+    created_at = models.DateTimeField(auto_now_add=True)
+    # 수정일
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    @property
+    def computed_status(self):
+        today = now().date()
+        start = self.start_date.date()
+        end = self.end_date.date()
+        remaining_days = (end - today).days
 
+        if today < start:
+            return "예정"
+        elif today > end:
+            return "종료"
+        elif remaining_days < self.goal_days:
+            return "도전불가"
+        return "도전가능"
 
 # 나의챌린지
 class UserChallenge(models.Model):
@@ -91,8 +117,9 @@ class UserChallenge(models.Model):
         decimal_places=2,
         default=0,
     )
-    # 
+    # 시작일
     start_date = models.DateTimeField()
+    # 종료일
     end_date = models.DateTimeField()
     # 진행도
     progress = models.DecimalField(
@@ -103,7 +130,20 @@ class UserChallenge(models.Model):
     # 상태
     status = models.CharField(
         max_length=20,
+        choices=STATUS_CHOICES,
+        default="도전중"
     )
+    
+    # 기록용
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    @property
+    def computed_progress(self):
+        if self.previous_expense == 0:
+            return 0
+        saved = self.previous_expense - self.total_expense
+        return max(0, round((saved / self.previous_expense) * 100, 2))
     
     @classmethod
     def create_for_user(cls, user, challenge, **kwargs):

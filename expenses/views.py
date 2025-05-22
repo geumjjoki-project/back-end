@@ -15,6 +15,8 @@ from expenses.utils.query import get_ordering, get_category_filter_q
 from expenses.utils.response import success_response, error_response
 from expenses.utils.summarize import summarize
 
+from challenges.models import UserChallenge
+
 class ExpenseBaseView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -93,6 +95,12 @@ class ExpenseDetailView(ExpenseBaseView):
 
     def put(self, request, expense_id):
         expense = self.get_object(expense_id, request.user)
+        if expense.user_challenge is not None:
+            return error_response(
+                message="챌린지에 연결된 지출내역은 수정할 수 없습니다.",
+                error_code="CHALLENGE_LOCKED_EXPENSE",
+                status_code=400
+            )
         serializer = ExpenseWriteSerializer(expense, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -105,6 +113,12 @@ class ExpenseDetailView(ExpenseBaseView):
 
     def delete(self, request, expense_id):
         expense = self.get_object(expense_id, request.user)
+        if expense.user_challenge is not None:
+            return error_response(
+                message="챌린지에 연결된 지출내역은 삭제할 수 없습니다.",
+                error_code="CHALLENGE_LOCKED_EXPENSE",
+                status_code=400
+            )
         expense.delete()
         return success_response({
             "message": "지출 내역이 삭제되었습니다."
@@ -156,8 +170,28 @@ class ExpenseCreateView(ExpenseBaseView):
     def post(self, request):
         serializer = ExpenseWriteSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user=request.user)
-            return success_response(serializer.data, status_code=201)
+            category = serializer.validated_data.get('category')
+            user = request.user
+            expense_date = serializer.validated_data.get('date')
+
+            user_challenges = UserChallenge.objects.filter(
+                user=user,
+                status='도전중',
+                start_date__date__lte=expense_date,
+                end_date__date__gte=expense_date,
+            )
+            user_challenge = None
+            if category is not None:
+                from django.db.models import Q
+                root_category = category.get_root_category() if hasattr(category, "get_root_category") else category
+                user_challenges = user_challenges.filter(
+                    Q(challenge__category=category) | Q(challenge__category=root_category) | Q(challenge__category__parent_category=root_category)
+                )
+            if user_challenges.exists():
+                user_challenge = user_challenges.first()
+
+            expense = serializer.save(user=user, user_challenge=user_challenge)
+            return success_response(ExpenseSerializer(expense).data, status_code=201)
         return error_response(
             message="입력값이 유효하지 않습니다.",
             error_code="INVALID_INPUT",
