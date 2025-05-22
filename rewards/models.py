@@ -19,6 +19,11 @@ class Reward(models.Model):
     valid_days = models.IntegerField()
     # 활성화여부
     is_active = models.BooleanField()
+    # 카테고리
+    category = models.CharField(
+        max_length=50,
+        default='기타',
+    )
     ##################################################
 
 
