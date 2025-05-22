@@ -8,6 +8,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Challenge, UserChallenge
 from .serializers import ChallengeListSerializer, ChallengeDetailSerializer, UserChallengeListSerializer
 from datetime import datetime
+from rest_framework import status
 
 
 class ChallengeBaseView(APIView):
