@@ -26,6 +26,7 @@ class RewardListSerializer(serializers.ModelSerializer):
             "description",
             "point",
             "thumbnail",
+            "category",
         )
 
     def get_thumbnail(self, obj):
@@ -52,6 +53,7 @@ class RewardSerializer(serializers.ModelSerializer):
             "point",
             "valid_days",
             "is_active",
+            "category",
         )
 
     def get_thumbnail(self, obj):
@@ -86,6 +88,7 @@ class RewardTransactionSerializer(serializers.ModelSerializer):
                 "thumbnail",
                 "images",
                 "point",
+                "category",
             )
 
     reward = RewardSerializerForRewardTransaction(read_only=True)

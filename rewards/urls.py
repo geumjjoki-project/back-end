@@ -12,4 +12,5 @@ urlpatterns = [
         name="reward_transaction_detail",
     ),
     path("list/", views.reward_transaction_list, name="reward_transaction_list"),
+    path("purchase/", views.reward_transaction_create, name="reward_transaction_create"),
 ]

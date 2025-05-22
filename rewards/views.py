@@ -5,6 +5,9 @@ from rest_framework import status, serializers
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from django.db.models import Q
+from accounts.models import UserProfile
+from django.utils import timezone
+from datetime import timedelta
 from drf_spectacular.utils import (
     extend_schema,
     OpenApiParameter,
@@ -472,3 +475,87 @@ def reward_transaction_detail(request, reward_transaction_id):
 
     serializer = RewardTransactionSerializer(transaction)
     return Response({"status": "success", "data": serializer.data})
+
+
+# ------------------------------------------
+# 리워드 교환
+# ------------------------------------------
+@extend_schema(
+    summary="리워드 교환",
+    request=RewardTransactionSerializer,
+    responses={
+        200: RewardTransactionSerializer,
+        400: OpenApiResponse(
+            response=error_response_schema,
+            description="잘못된 요청",
+            examples=[
+                OpenApiExample(
+                    name="Invalid reward",
+                    summary="활성화되지 않은 리워드",
+                    value={
+                        "status": "error",
+                        "message": "활성화되지 않은 리워드입니다.",
+                        "code": 400,
+                    },
+                ),
+                OpenApiExample(
+                    name="Insufficient point",
+                    summary="포인트가 부족함",
+                    value={
+                        "status": "error",
+                        "message": "포인트가 부족합니다.",
+                        "code": 400,
+                    },
+                ),
+            ],
+        ),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def reward_transaction_create(request):
+    try:
+        reward_id = request.data.get("rewardId")
+        reward = Reward.objects.get(reward_id=reward_id)
+        user = request.user
+        if reward.is_active == False:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "활성화되지 않은 리워드입니다.",
+                    "code": 400,
+                },
+                status=400,
+            )
+        userProfile = UserProfile.objects.get(user=user)
+        if userProfile.point < reward.point:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "포인트가 부족합니다.",
+                    "code": 400,
+                },
+                status=400,
+            )
+        transaction = RewardTransaction.objects.create(
+            user=user,
+            reward=reward,
+            expire_at=timezone.now() + timedelta(days=reward.valid_days),
+        )
+        userProfile.point -= reward.point
+        userProfile.save()
+        return Response(
+            {
+                "status": "success",
+                "message": "리워드 교환 완료",
+                "data": RewardTransactionSerializer(transaction).data,
+            },
+        )
+    except Exception as e:
+        return Response(
+            {
+                "status": "error",
+                "message": str(e),
+                "error_code": "INTERNAL_SERVER_ERROR",
+            },
+        )
