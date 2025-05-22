@@ -11,6 +11,15 @@ from datetime import timedelta
 from django.db.models import Q, Sum
 from expenses.models import Expense
 
+def judge_user_challenge_status(user_challenge):
+    now = timezone.now().date()
+    if user_challenge.status == '도전중' and now > user_challenge.end_date.date():
+        if user_challenge.total_expense <= user_challenge.target_expense:
+            user_challenge.status = '성공'
+        else:
+            user_challenge.status = '실패'
+        user_challenge.save(update_fields=['status'])
+
 class ChallengeBaseView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -72,6 +81,10 @@ class UserChallengeView(ChallengeBaseView):
         if type_param in type_map:
             queryset = queryset.filter(status=type_map[type_param])
 
+        for uc in queryset:
+            if uc.status == '도전중':
+                judge_user_challenge_status(uc)
+                
         paginator = CustomChallengePagination()
         paginated_qs = paginator.paginate_queryset(queryset, request)
         serializer = UserChallengeListSerializer(paginated_qs, many=True)
@@ -84,6 +97,8 @@ class UserChallengeDetailView(ChallengeBaseView):
         user = request.user
         try:
             user_challenge = UserChallenge.objects.get(pk=user_challenge_id, user=user)
+            if user_challenge.status == '도전중':
+                judge_user_challenge_status(user_challenge)
             serializer = UserChallengeDetailSerializer(user_challenge)
             return success_response(serializer.data)
         except UserChallenge.DoesNotExist:
