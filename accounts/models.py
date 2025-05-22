@@ -77,7 +77,7 @@ class UserProfile(models.Model):
         default=0,
     )
     # 마일리지
-    mileage = models.IntegerField(
+    point = models.IntegerField(
         default=0,
     )
     # 평균수입

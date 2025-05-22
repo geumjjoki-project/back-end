@@ -63,7 +63,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 defaults={
                     'level': 1,
                     'exp': 0,
-                    'mileage': 0,
+                    'point': 0,
                     'average_income': 0.00
                 }
             )

@@ -7,7 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
     class UserProfileSerializer(serializers.ModelSerializer):
         class Meta:
             model = UserProfile
-            fields = ['level', 'exp', 'mileage', 'average_income']
+            fields = ['level', 'exp', 'point', 'average_income']
 
     user_profile = UserProfileSerializer(read_only=True)
 
