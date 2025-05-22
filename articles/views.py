@@ -4,8 +4,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Article, Comment
-from .serializers import ArticleListSerializer, ArticleCreatePutSerializer, ArticleDetailSerializer, CommentSerializer, CommentCreatePutSerializer
+from .models import Article, Comment, ArticleLike, CommentLike
+from .serializers import (
+    ArticleListSerializer,
+    ArticleCreatePutSerializer,
+    ArticleDetailSerializer,
+    CommentSerializer,
+    CommentCreatePutSerializer,
+)
 from django.db.models import Q
 import math
 from django.core.paginator import Paginator
@@ -16,9 +22,10 @@ class ArticleBaseView(APIView):
     authentication_classes = [JWTAuthentication]  # 사용하는 인증 방식에 따라 다름
     permission_classes = [IsAuthenticated]  # 인증된 사용자만 접근 가능
 
+
 # Create your views here.
 class ArticleView(ArticleBaseView):
-    
+
     # 게시글 목록 조회 api
     def get(self, request):
         try:
@@ -182,8 +189,10 @@ class ArticleDetailView(ArticleBaseView):
             article.save()
 
             # 게시글 정보 시리얼라이즈
-            article_serializer = ArticleDetailSerializer(article, context={'request': request})
-            
+            article_serializer = ArticleDetailSerializer(
+                article, context={"request": request}
+            )
+
             response_data = {
                 "status": "success",
                 "article": article_serializer.data,
@@ -200,7 +209,7 @@ class ArticleDetailView(ArticleBaseView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-            
+
     # 게시글 수정 api
     def put(self, request, article_id):
         try:
@@ -215,7 +224,7 @@ class ArticleDetailView(ArticleBaseView):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             try:
                 article = Article.objects.get(pk=article_id)
             except Article.DoesNotExist:
@@ -223,24 +232,24 @@ class ArticleDetailView(ArticleBaseView):
                     {
                         "status": "error",
                         "message": "존재하지 않는 게시글입니다.",
-                        "code": "404",  
+                        "code": "404",
                     },
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            
+
             article.title = title
             article.content = content
             article.save()
-            
+
             serializer = ArticleCreatePutSerializer(article)
-            
+
             response_data = {
                 "status": "success",
                 "article": serializer.data,
                 "code": 200,
             }
             return Response(response_data, status=status.HTTP_200_OK)
-        
+
         except Exception as e:
             return Response(
                 {
@@ -275,7 +284,7 @@ class ArticleDetailView(ArticleBaseView):
             return Response(
                 {
                     "status": "error",
-                    "message": "서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",  
+                    "message": "서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
                     "code": "500",
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -300,8 +309,12 @@ class CommentView(ArticleBaseView):
                 )
 
             # 댓글 조회 및 시리얼라이즈
-            comments = article.comments.filter(parent_comment=None)  # 대댓글이 아닌 댓글만 조회
-            comment_serializer = CommentSerializer(comments, many=True, context={'request': request})
+            comments = article.comments.filter(
+                parent_comment=None
+            )  # 대댓글이 아닌 댓글만 조회
+            comment_serializer = CommentSerializer(
+                comments, many=True, context={"request": request}
+            )
 
             response_data = {
                 "status": "success",
@@ -337,8 +350,8 @@ class CommentView(ArticleBaseView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            content = request.data.get('content')
-            parent_comment_id = request.data.get('parent_comment_id')
+            content = request.data.get("content")
+            parent_comment_id = request.data.get("parent_comment_id")
 
             if not content:
                 return Response(
@@ -358,7 +371,7 @@ class CommentView(ArticleBaseView):
                         article=article,
                         user=request.user,
                         content=content,
-                        parent_comment=parent_comment
+                        parent_comment=parent_comment,
                     )
                 except Comment.DoesNotExist:
                     return Response(
@@ -372,13 +385,11 @@ class CommentView(ArticleBaseView):
             # 일반 댓글인 경우
             else:
                 comment = Comment.objects.create(
-                    article=article,
-                    user=request.user,
-                    content=content
+                    article=article, user=request.user, content=content
                 )
 
-            serializer = CommentSerializer(comment, context={'request': request})
-            
+            serializer = CommentSerializer(comment, context={"request": request})
+
             response_data = {
                 "status": "success",
                 "comment": serializer.data,
@@ -395,11 +406,11 @@ class CommentView(ArticleBaseView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-    
+
     # 댓글 수정 api
     def put(self, request, article_id, comment_id):
         try:
-            content = request.data.get('content')
+            content = request.data.get("content")
             if not content:
                 return Response(
                     {
@@ -408,7 +419,7 @@ class CommentView(ArticleBaseView):
                         "code": "400",
                     }
                 )
-            
+
             try:
                 comment = Comment.objects.get(pk=comment_id)
             except Comment.DoesNotExist:
@@ -420,7 +431,7 @@ class CommentView(ArticleBaseView):
                     },
                     status=status.HTTP_404_NOT_FOUND,
                 )
-                
+
             user = request.user
             if comment.user != user:
                 return Response(
@@ -431,17 +442,19 @@ class CommentView(ArticleBaseView):
                     },
                     status=status.HTTP_403_FORBIDDEN,
                 )
-            
+
             comment.content = content
             comment.save()
-            serializer = CommentCreatePutSerializer(comment, context={'request': request})
+            serializer = CommentCreatePutSerializer(
+                comment, context={"request": request}
+            )
             response_data = {
                 "status": "success",
                 "comment": serializer.data,
                 "code": 200,
             }
             return Response(response_data, status=status.HTTP_200_OK)
-        
+
         except Exception as e:
             return Response(
                 {
@@ -451,7 +464,7 @@ class CommentView(ArticleBaseView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        
+
     # 댓글 삭제 api
     def delete(self, request, article_id, comment_id):
         try:
@@ -466,7 +479,6 @@ class CommentView(ArticleBaseView):
                     },
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            
             user = request.user
             if comment.user != user:
                 return Response(
@@ -484,6 +496,95 @@ class CommentView(ArticleBaseView):
                 "code": 200,
             }
             return Response(response_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                    "code": "500",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+class ArticleLikeView(ArticleBaseView):
+    def post(self, request, article_id):
+        try:
+            try:
+                article = Article.objects.get(pk=article_id)
+            except Article.DoesNotExist:
+                return Response(
+                    {
+                        "status": "error",
+                        "message": "존재하지 않는 게시글입니다.",
+                        "code": "404",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            user = request.user
+            
+            article_like, created = ArticleLike.objects.get_or_create(
+                article=article,
+                user=user,
+            )
+            
+            if created:
+                message = "게시글 좋아요 처리되었습니다."
+                
+            else:
+                article_like.delete()
+                message = "게시글 좋아요 취소되었습니다."
+            
+            response_data = {
+                "status": "success",
+                "message": message,
+                "code": 200,
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                    "code": "500",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+class CommentLikeView(ArticleBaseView):
+    def post(self, request, comment_id):
+        try:
+            try:
+                comment = Comment.objects.get(pk=comment_id)
+            except Comment.DoesNotExist:
+                return Response(
+                    {
+                        "status": "error",
+                        "message": "존재하지 않는 댓글입니다.",
+                        "code": "404",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            user = request.user
+            
+            comment_like, created = CommentLike.objects.get_or_create(
+                comment=comment,
+                user=user,
+            )
+            
+            if created:
+                message = "댓글 좋아요 처리되었습니다."
+            else:
+                comment_like.delete()
+                message = "댓글 좋아요 취소되었습니다."
+            
+            response_data = {
+                "status": "success",
+                "message": message,
+                "code": 200,
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+
         except Exception as e:
             return Response(
                 {
