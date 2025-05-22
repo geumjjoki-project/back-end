@@ -81,12 +81,8 @@ class Expense(models.Model):
             try:
                 return self.category.get_root_category()
             except Exception:
-                pass
-        # 카테고리가 존재하지 않으면 기타 카테고리를 반환함
-        try:
-            return Category.objects.get(name="기타상품·서비스")
-        except Category.DoesNotExist:
-            return None
+                return None
+        return None
 
 
 # 지출내역분석
