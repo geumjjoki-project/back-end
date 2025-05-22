@@ -24,7 +24,7 @@ class RewardListSerializer(serializers.ModelSerializer):
             "reward_id",
             "name",
             "description",
-            "cost",
+            "point",
             "thumbnail",
         )
 
@@ -49,7 +49,7 @@ class RewardSerializer(serializers.ModelSerializer):
             "description",
             "thumbnail",
             "images",
-            "cost",
+            "point",
             "valid_days",
             "is_active",
         )
@@ -85,7 +85,7 @@ class RewardTransactionSerializer(serializers.ModelSerializer):
                 "description",
                 "thumbnail",
                 "images",
-                "cost",
+                "point",
             )
 
     reward = RewardSerializerForRewardTransaction(read_only=True)

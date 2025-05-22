@@ -18,14 +18,7 @@ class ChallengeListSerializer(serializers.ModelSerializer):
 class ChallengeDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Challenge
-        fields = [
-            'challenge_id',
-            'title',
-            'content',
-            'start_date',
-            'end_date',
-            'status'
-        ]
+        fields = '__all__'
 
 
 # 진행, 성공, 실패한 챌린지 목록

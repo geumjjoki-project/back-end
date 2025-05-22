@@ -14,7 +14,7 @@ class Reward(models.Model):
     # 설명
     description = models.CharField(max_length=255)
     # 비용
-    cost = models.IntegerField()
+    point = models.IntegerField()
     # 유효기간
     valid_days = models.IntegerField()
     # 활성화여부
