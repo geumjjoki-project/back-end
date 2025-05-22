@@ -1,5 +1,7 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
 
 # Create your models here.
 
@@ -89,6 +91,9 @@ class UserChallenge(models.Model):
         decimal_places=2,
         default=0,
     )
+    # 
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
     # 진행도
     progress = models.DecimalField(
         max_digits=5,
@@ -99,3 +104,16 @@ class UserChallenge(models.Model):
     status = models.CharField(
         max_length=20,
     )
+    
+    @classmethod
+    def create_for_user(cls, user, challenge, **kwargs):
+        now = timezone.now()
+        start_date = now
+        end_date = start_date + timedelta(days=challenge.goal_days)
+        return cls.objects.create(
+            user=user,
+            challenge=challenge,
+            start_date=start_date,
+            end_date=end_date,
+            **kwargs
+        )

@@ -11,8 +11,8 @@ from datetime import datetime
 
 
 class ChallengeBaseView(APIView):
-    # authentication_classes = [JWTAuthentication]
-    # permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
     pass
 
 # 전체 조회
