@@ -57,7 +57,7 @@ def email_login(request):
             user=user,
             level=1,
             exp=0,
-            mileage=0,
+            point=0,
             average_income=0.00
         )
     login(request, user)
@@ -89,7 +89,7 @@ def email_signup(request):
         user=user,
         level=1,
         exp=0,
-        mileage=0,
+        point=0,
         average_income=0.00
     )
     login(request, user)

@@ -43,12 +43,14 @@ class Challenge(models.Model):
     # 카테고리
     category = models.ForeignKey("expenses.Category", on_delete=models.SET_NULL, null=True, blank=True, related_name="challenges")
     # 보상 마일리지
-    reward_mileage = models.PositiveIntegerField()
+    point = models.PositiveIntegerField()
     # 상태: 진행중, 예정, 종료, 중지
     status = models.CharField(
         max_length=20,
         default="예정",
     )
+    # 목표 기간
+    goal_days = models.PositiveIntegerField()
     # 시작일
     start_date = models.DateTimeField()
     # 종료일

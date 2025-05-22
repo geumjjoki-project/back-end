@@ -39,13 +39,13 @@ reward_list_parameters = [
         required=False,
     ),
     OpenApiParameter(
-        name="min_cost",
+        name="min_point",
         type=OpenApiTypes.INT,
         description="최소 비용",
         required=False,
     ),
     OpenApiParameter(
-        name="max_cost",
+        name="max_point",
         type=OpenApiTypes.INT,
         description="최대 비용",
         required=False,
@@ -53,7 +53,7 @@ reward_list_parameters = [
     OpenApiParameter(
         name="ordering",
         type=OpenApiTypes.STR,
-        description="정렬 기준 (cost, is_active)",
+        description="정렬 기준 (point, is_active)",
         required=False,
     ),
 ]
@@ -115,12 +115,12 @@ error_response_schema = inline_serializer(
             description="잘못된 요청",
             examples=[
                 OpenApiExample(
-                    name="Invalid cost",
-                    summary="min_cost가 숫자가 아님",
+                    name="Invalid point",
+                    summary="min_point가 숫자가 아님",
                     value={
                         "status": "error",
-                        "message": "min_cost 및 max_cost는 정수여야 합니다.",
-                        "error_code": "INVALID_COST_PARAM",
+                        "message": "min_point 및 max_point는 정수여야 합니다.",
+                        "error_code": "INVALID_point_PARAM",
                     },
                 ),
                 OpenApiExample(
@@ -156,10 +156,10 @@ error_response_schema = inline_serializer(
 def reward_list(request):
     is_active = request.query_params.get("is_active")
     search = request.query_params.get("search")
-    min_cost = request.query_params.get("min_cost")
-    max_cost = request.query_params.get("max_cost")
+    min_point = request.query_params.get("min_point")
+    max_point = request.query_params.get("max_point")
     ordering = request.query_params.get("ordering")
-    DEFAULT_ORDERING = ["-is_active", "cost"]
+    DEFAULT_ORDERING = ["-is_active", "point"]
 
     rewards = Reward.objects.all()
 
@@ -184,16 +184,16 @@ def reward_list(request):
         )
 
     try:
-        if min_cost is not None:
-            rewards = rewards.filter(cost__gte=int(min_cost))
-        if max_cost is not None:
-            rewards = rewards.filter(cost__lte=int(max_cost))
+        if min_point is not None:
+            rewards = rewards.filter(point__gte=int(min_point))
+        if max_point is not None:
+            rewards = rewards.filter(point__lte=int(max_point))
     except ValueError:
         return Response(
             {
                 "status": "error",
-                "message": "min_cost 및 max_cost는 정수여야 합니다.",
-                "error_code": "INVALID_COST_PARAM",
+                "message": "min_point 및 max_point는 정수여야 합니다.",
+                "error_code": "INVALID_point_PARAM",
             },
             status=400,
         )
