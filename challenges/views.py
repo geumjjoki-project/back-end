@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Challenge, UserChallenge
 from .serializers import ChallengeListSerializer, ChallengeDetailSerializer, UserChallengeListSerializer
 from datetime import datetime
+from rest_framework import status
 
 # 전체 조회
 @api_view(['GET'])
