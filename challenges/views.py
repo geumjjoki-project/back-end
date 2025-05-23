@@ -105,7 +105,8 @@ class ChallengeView(ChallengeBaseView):
                     qs = qs.filter(is_active=True)
                 elif is_active.lower() in ['false', '0', 'no']:
                     qs = qs.filter(is_active=False)
-            
+                else:
+                    return error_response("is_active는 true 또는 false여야 합니다.", "INVALID_IS_ACTIVE_PARAM")
 
             
             sort = request.GET.get('sort', '-start_date')
