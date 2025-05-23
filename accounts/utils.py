@@ -37,9 +37,5 @@ def is_valid_password(password):
     if not password:
         return False
     # 문자, 숫자, 특수문자 포함
-    if not re.match(r'^[a-zA-Z0-9!@#$%^&*()_+-=[]{}|;:,.<>?]+$', password):
-        return False
-    # 8~20자
-    if len(password) < 8 or len(password) > 20:
-        return False
-    return True
+    password_regex = r'^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*])[a-zA-Z\d!@#$%^&*]{8,20}$'
+    return re.match(password_regex, password) is not None
