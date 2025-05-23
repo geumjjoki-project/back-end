@@ -176,7 +176,7 @@ class CommentSerializer(serializers.ModelSerializer):
     
     def get_replies(self, obj):
         replies = obj.replies.all()
-        return ReplySerializer(replies, many=True).data
+        return ReplySerializer(replies, many=True, context=self.context).data
     
     def get_time_ago(self, obj):
         return obj.created_at.strftime("%m/%d %H:%M")
