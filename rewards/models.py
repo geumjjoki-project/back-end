@@ -4,7 +4,6 @@ from django.conf import settings
 
 # 리워드
 class Reward(models.Model):
-    ##################################################
     # 리워드식별자
     reward_id = models.BigAutoField(
         primary_key=True,
@@ -24,12 +23,10 @@ class Reward(models.Model):
         max_length=50,
         default='기타',
     )
-    ##################################################
 
 
 # 리워드이미지
 class RewardImage(models.Model):
-    ##################################################
     # 리워드이미지식별자
     reward_image_id = models.BigAutoField(
         primary_key=True,
@@ -48,12 +45,10 @@ class RewardImage(models.Model):
     uploaded_at = models.DateTimeField(
         auto_now_add=True,
     )
-    ##################################################
 
 
 # 리워드교환목록
 class RewardTransaction(models.Model):
-    ##################################################
     # 리워드교환목록식별자
     reward_transaction_id = models.BigAutoField(
         primary_key=True,
@@ -77,4 +72,3 @@ class RewardTransaction(models.Model):
     redeemed_at = models.DateTimeField(auto_now_add=True)
     # 만료일시
     expire_at = models.DateTimeField()
-    ##################################################
