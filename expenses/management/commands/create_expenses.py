@@ -61,8 +61,8 @@ class Command(BaseCommand):
         parser.add_argument(
             '--unclassified-ratio',
             type=float,
-            default=0.01,
-            help='미분류(카테고리 없음) 지출 생성 비율 (기본 0.01)'
+            default=0.05,
+            help='미분류(카테고리 없음) 지출 생성 비율 (기본 0.05)'
         )
 
     def handle(self, *args, **options):
@@ -82,7 +82,7 @@ class Command(BaseCommand):
         today = datetime.now().date()
         enddate_str = options.get('enddate')
         startdate_str = options.get('startdate')
-        percent_unclassified = options.get('unclassified_ratio', 0.01)
+        percent_unclassified = options.get('unclassified_ratio', 0.05)
         if enddate_str:
             end_date = datetime.strptime(enddate_str, "%Y-%m-%d").date()
         else:
