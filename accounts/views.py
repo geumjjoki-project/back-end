@@ -102,7 +102,7 @@ def email_signup(request):
             message='비밀번호 형식이 올바르지 않습니다.',
             code=status.HTTP_400_BAD_REQUEST
         )
-    password_confirm = request.data.get('password_confirm')
+    password_confirm = request.data.get('passwordConfirm')
     if password != password_confirm:
         return response.error(
             message='비밀번호가 일치하지 않습니다.',
@@ -110,6 +110,11 @@ def email_signup(request):
         )
     nickname = request.data.get('nickname', email.split('@')[0])
     username = request.data.get('username', nickname)
+    if User.objects.filter(username=username).exists():
+        return response.error(
+            message='이미 존재하는 닉네임입니다.',
+            code=status.HTTP_400_BAD_REQUEST
+        )
     user = User.objects.create_user(email=email, password=password, username=username, nickname=nickname)
     UserProfile.objects.create(
         user=user,
@@ -118,7 +123,7 @@ def email_signup(request):
         point=0,
         average_income=0.00
     )
-    login(request, user)
+    # login(request, user,)
     refresh = RefreshToken.for_user(user)
     access_token = str(refresh.access_token)
     refresh_token = str(refresh)
