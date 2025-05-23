@@ -2,8 +2,8 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 class CustomChallengePagination(PageNumberPagination):
-    page_size_query_param = 'size'
-
+    page_size_query_param = 'page_size'
+    
     def get_paginated_response(self, data, extra=None):
         pagination = {
             "current_page": self.page.number,

@@ -1,200 +1,325 @@
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Challenge, UserChallenge
-from .serializers import ChallengeListSerializer, ChallengeDetailSerializer, UserChallengeListSerializer, UserChallengeDetailSerializer
+from .serializers import (
+    ChallengeListSerializer,
+    ChallengeDetailSerializer,
+    UserChallengeListSerializer,
+    UserChallengeDetailSerializer
+)
 from django.utils import timezone
-from .pagniation import CustomChallengePagination
+from .pagination import CustomChallengePagination
 from .utils.response import success_response, error_response
-from datetime import timedelta
+from datetime import datetime, timedelta
 from django.db.models import Q, Sum
 from expenses.models import Expense
+from decimal import Decimal, InvalidOperation
 
+# 정렬 허용 필드
+ALLOWED_SORT_FIELDS = [
+    'start_date',
+    'end_date',
+    'goal_amount',
+    'point',
+    'computed_status'
+]
+
+# 유저 챌린지 상태 업데이트 헬퍼
 def judge_user_challenge_status(user_challenge):
-    now = timezone.now().date()
-    if user_challenge.status == '도전중' and now > user_challenge.end_date.date():
+    today = timezone.now().date()
+    if user_challenge.status == '도전중' and today > user_challenge.end_date.date():
         if user_challenge.total_expense <= user_challenge.target_expense:
             user_challenge.status = '성공'
         else:
             user_challenge.status = '실패'
         user_challenge.save(update_fields=['status'])
 
+
 class ChallengeBaseView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     pass
 
-# 전체 조회
+
 class ChallengeView(ChallengeBaseView):
     def get(self, request):
         try:
+            # 쿼리 파라미터
+            title = request.GET.get('title')
+            content = request.GET.get('content')
+            goal_amount = request.GET.get('goal_amount')
+            goal_days = request.GET.get('goal_days')
+            category = request.GET.get('category')
+            point = request.GET.get('point')
             start_date = request.GET.get('start_date')
             end_date = request.GET.get('end_date')
-            sort = request.GET.get('sort', 'date')
-            size = request.GET.get('size')
-
-            challenges = Challenge.objects.all()
+            is_active = request.GET.get('is_active')
+            status_param = request.GET.get('status')
+            
+            qs = Challenge.objects.all()
+            
+            # 필터링
+            if title:
+                qs = qs.filter(title__icontains=title)
+            if content:
+                qs = qs.filter(content__icontains=content)
+            if goal_amount:
+                try:
+                    goal_amount = Decimal(goal_amount)
+                except InvalidOperation:
+                    return error_response("goal_amount 형식 오류", code=400)
+                qs = qs.filter(goal_amount=goal_amount)
+            if goal_days:
+                try:
+                    goal_days = int(goal_days)
+                except ValueError:
+                    return error_response("goal_days 형식 오류", code=400)
+                qs = qs.filter(goal_days=goal_days)
+            if category:
+                try:
+                    category = int(category)
+                except ValueError:
+                    return error_response("category 형식 오류", code=400)
+                qs = qs.filter(category_id=category)
+            if point:
+                try:
+                    point = int(point)
+                except ValueError:
+                    return error_response("point 형식 오류", code=400)
+                qs = qs.filter(point=point)
             if start_date:
-                challenges = challenges.filter(start_date__gte=start_date)
+                try:
+                    start_date = datetime.fromisoformat(start_date).date()
+                except ValueError:
+                    return error_response("start_date 형식 오류", code=400)
+                qs = qs.filter(start_date__gte=start_date)
             if end_date:
-                challenges = challenges.filter(end_date__lte=end_date)
-            if sort == 'date':
-                challenges = challenges.order_by('-start_date')
-            else:
-                return error_response("지원되지 않는 정렬 기준입니다.", error_code="UNSUPPORTED_SORT", code=400)
+                try:
+                    end_date = datetime.fromisoformat(end_date).date()
+                except ValueError:
+                    return error_response("end_date 형식 오류", code=400)
+                qs = qs.filter(end_date__lte=end_date)
+            if is_active:
+                if is_active.lower() in ['true', '1', 'yes']:
+                    qs = qs.filter(is_active=True)
+                elif is_active.lower() in ['false', '0', 'no']:
+                    qs = qs.filter(is_active=False)
+            
+
+            
+            sort = request.GET.get('sort', '-start_date')
+            sort_field = sort.lstrip('-')
+            reverse = sort.startswith('-')
+            
+            if sort_field != 'computed_status':
+                qs = qs.order_by(sort)
+
+            serializer_all = ChallengeListSerializer(qs, many=True)
+            full_list = serializer_all.data
+            if status_param := request.GET.get('status'):
+                full_list = [
+                    c for c in full_list
+                    if c['computed_status'] == status_param
+                ]
+                
+            rank = {"도전가능":0, "도전불가":1, "예정":2, "종료":3}
+            
+            def sort_key(item):
+                # 1) status key
+                status_key = rank.get(item['computed_status'], 99)
+
+                # 2) 두 번째 키: item[sort_field] 를 적절히 타입 변환
+                raw = item.get(sort_field)
+                if sort_field == 'goal_amount':
+                    val = Decimal(raw)
+                elif sort_field in ('goal_days', 'point'):
+                    val = int(raw)
+                elif sort_field in ('start_date', 'end_date'):
+                    # datetime 섹션: timestamp 로 비교
+                    val = datetime.fromisoformat(raw).timestamp()
+                else:
+                    # 문자열 필드라면 그대로
+                    val = raw
+
+                # 3) 내림차순(reverse)일 땐 숫자는 부호 반전
+                if reverse and isinstance(val, (int, float, Decimal)):
+                    val = -val
+
+                return (status_key, val)
+                
+            full_list = sorted(full_list, key=sort_key)
 
             paginator = CustomChallengePagination()
-            if size:
-                paginator.page_size = int(size)
-            paginated_qs = paginator.paginate_queryset(challenges, request)
-            serializer = ChallengeListSerializer(paginated_qs, many=True)
-            paginated_data = paginator.get_paginated_response(serializer.data).data
-            return success_response(paginated_data)
+            page_list = paginator.paginate_queryset(full_list, request)
+            paginated = paginator.get_paginated_response(page_list).data
+
+            return success_response(paginated)
+
         except Exception as e:
             return error_response(str(e), error_code="SERVER_ERROR", code=500)
 
-# 상세 조회
+
+
 class ChallengeDetailView(ChallengeBaseView):
+    """단일 챌린지 상세조회"""
     def get(self, request, challenge_id):
         try:
             challenge = Challenge.objects.get(pk=challenge_id)
             serializer = ChallengeDetailSerializer(challenge)
             return success_response(serializer.data)
         except Challenge.DoesNotExist:
-            return error_response("해당 챌린지를 찾을 수 없습니다.", error_code="CHALLENGE_NOT_FOUND", code=404)
+            return error_response(
+                "해당 챌린지를 찾을 수 없습니다.",
+                error_code="CHALLENGE_NOT_FOUND",
+                code=404
+            )
         except Exception as e:
             return error_response(str(e), error_code="SERVER_ERROR", code=500)
 
 
-# 내 챌린지 리스트 보기 (도전중, 성공, 실패)
 class UserChallengeView(ChallengeBaseView):
+    """내 챌린지 목록 (도전중/성공/실패)"""
     def get(self, request):
         user = request.user
         type_param = request.GET.get('type')
-        type_map = {
-            "1": "도전중",
-            "2": "성공",
-            "3": "실패"
-        }
-        queryset = UserChallenge.objects.filter(user=user)
+        type_map = {"1": "도전중", "2": "성공", "3": "실패"}
+        qs = UserChallenge.objects.filter(user=user)
         if type_param in type_map:
-            queryset = queryset.filter(status=type_map[type_param])
+            qs = qs.filter(status=type_map[type_param])
 
-        for uc in queryset:
+        # 상태 자동 갱신
+        for uc in qs:
             if uc.status == '도전중':
                 judge_user_challenge_status(uc)
-                
-        paginator = CustomChallengePagination()
-        paginated_qs = paginator.paginate_queryset(queryset, request)
-        serializer = UserChallengeListSerializer(paginated_qs, many=True)
-        paginated_data = paginator.get_paginated_response(serializer.data).data
-        return success_response(paginated_data)
 
-# 내 챌린지 상세조회
+        paginator = CustomChallengePagination()
+        page_qs = paginator.paginate_queryset(qs, request)
+        serializer = UserChallengeListSerializer(page_qs, many=True)
+        data = paginator.get_paginated_response(serializer.data).data
+        return success_response(data)
+
+
 class UserChallengeDetailView(ChallengeBaseView):
+    """내 챌린지 상세조회"""
     def get(self, request, user_challenge_id):
         user = request.user
         try:
-            user_challenge = UserChallenge.objects.get(pk=user_challenge_id, user=user)
-            if user_challenge.status == '도전중':
-                judge_user_challenge_status(user_challenge)
-            serializer = UserChallengeDetailSerializer(user_challenge)
+            uc = UserChallenge.objects.get(pk=user_challenge_id, user=user)
+            if uc.status == '도전중':
+                judge_user_challenge_status(uc)
+            serializer = UserChallengeDetailSerializer(uc)
             return success_response(serializer.data)
         except UserChallenge.DoesNotExist:
-            return error_response("해당 유저챌린지를 찾을 수 없습니다.", error_code="USER_CHALLENGE_NOT_FOUND", code=404)
+            return error_response(
+                "해당 유저챌린지를 찾을 수 없습니다.",
+                error_code="USER_CHALLENGE_NOT_FOUND",
+                code=404
+            )
         except Exception as e:
             return error_response(str(e), error_code="SERVER_ERROR", code=500)
 
-# 챌린지 참여
+
 class ChallengeJoinView(ChallengeBaseView):
+    """챌린지 참여"""
     def post(self, request, challenge_id):
         user = request.user
         try:
             challenge = Challenge.objects.get(pk=challenge_id)
             now = timezone.now()
 
-            # 1. 종료 챌린지/종료일 체크
+            # 1. 종료된 챌린지인지
             if challenge.computed_status == "종료" or challenge.end_date < now:
-                return error_response("종료된 챌린지에는 도전할 수 없습니다.", error_code="CHALLENGE_ALREADY_FINISHED", code=400)
+                return error_response(
+                    "종료된 챌린지에는 도전할 수 없습니다.",
+                    error_code="CHALLENGE_ALREADY_FINISHED",
+                    code=400
+                )
 
-            # 2. 챌린지 기간 체크
-            period_days = (challenge.end_date.date() - challenge.start_date.date()).days + 1
-            if period_days < challenge.goal_days:
-                return error_response("챌린지 기간이 목표 기간보다 짧아 도전할 수 없습니다.", error_code="PERIOD_TOO_SHORT", code=400)
+            # 2. 기간 체크
+            period = (challenge.end_date.date() - challenge.start_date.date()).days + 1
+            if period < challenge.goal_days:
+                return error_response(
+                    "챌린지 기간이 목표 기간보다 짧아 도전할 수 없습니다.",
+                    error_code="PERIOD_TOO_SHORT",
+                    code=400
+                )
 
-            # 3. 최근 기간 소비내역 체크 (7/28일 챌린지 한정)
+            # 3. 최근 소비 검증 (7/28일 챌린지)
             previous_expense = 0
             target_expense = challenge.goal_amount
             if challenge.goal_days in (7, 28):
-                period_days = challenge.goal_days
-                period_end = (now - timedelta(days=1)).date() # 오늘 제외
-                period_start = (now - timedelta(days=period_days)).date()
-                category = challenge.category
-                if not category:
-                    return error_response("카테고리가 지정되지 않은 챌린지는 입장 제한 검증을 할 수 없습니다.",
-                                         error_code="CATEGORY_REQUIRED", code=400)
-                root_category = category.get_root_category() if hasattr(category, "get_root_category") else category
+                end_date = (now - timedelta(days=1)).date()
+                start_date = (now - timedelta(days=challenge.goal_days)).date()
 
-                # 하위 카테고리까지 포함해서 집계
-                expenses_qs = Expense.objects.filter(
-                    user=user,
-                    date__gte=period_start,
-                    date__lte=period_end,
-                ).filter(
-                    Q(category=root_category) | Q(category__parent_category=root_category)
-                )
-                previous_expense = expenses_qs.aggregate(total=Sum("amount"))["total"] or 0
-
-                # 참가 조건: 지난 기간 소비가 목표금액 이상이어야 함
-                if previous_expense < challenge.goal_amount:
-                    category_name = root_category.name if root_category else "해당 카테고리"
+                if not challenge.category:
                     return error_response(
-                        f"지난 {challenge.goal_days}일간({period_start} ~ {period_end}) '{category_name}' 카테고리에서 "
-                        f"{challenge.goal_amount}원 이상 소비해야 참가할 수 있습니다. "
-                        f"현재 사용금액: {int(previous_expense)}원",
+                        "카테고리가 지정되지 않은 챌린지는 입장 제한 검증을 할 수 없습니다.",
+                        error_code="CATEGORY_REQUIRED",
+                        code=400
+                    )
+                root = challenge.category.get_root_category()
+                qs_exp = Expense.objects.filter(
+                    user=user,
+                    date__gte=start_date,
+                    date__lte=end_date
+                ).filter(
+                    Q(category=root) | Q(category__parent_category=root)
+                )
+                previous_expense = qs_exp.aggregate(total=Sum("amount"))['total'] or 0
+                if previous_expense < challenge.goal_amount:
+                    return error_response(
+                        f"지난 {challenge.goal_days}일간({start_date}~{end_date}) {root.name}에서 "
+                        f"{challenge.goal_amount}원 이상 소비해야 합니다. 현재: {int(previous_expense)}원",
                         error_code="NOT_ENOUGH_EXPENSE",
                         code=400
                     )
-                # 목표지출 = 이전 소비 - 절약 목표(정책에 따라 조정 가능)
                 target_expense = max(0, previous_expense - challenge.goal_amount)
 
-            # 4. 동일 챌린지 '도전중' 중복참여 막기
+            # 4. 중복참여 방지
             if UserChallenge.objects.filter(
-                user=user,
-                challenge=challenge,
-                status="도전중"
+                user=user, challenge=challenge, status="도전중"
             ).exists():
-                return error_response("이미 도전중인 챌린지입니다.", error_code="ALREADY_IN_PROGRESS", code=400)
+                return error_response(
+                    "이미 도전중인 챌린지입니다.",
+                    error_code="ALREADY_IN_PROGRESS",
+                    code=400
+                )
 
-            # 5. 동일 카테고리 '도전중' 챌린지 중복참여 막기 (다른 챌린지에서)
-            if challenge.category:
-                same_category_in_progress = UserChallenge.objects.filter(
-                    user=user,
-                    challenge__category=challenge.category,
-                    status="도전중"
-                ).exclude(challenge=challenge).exists()
-                if same_category_in_progress:
-                    return error_response("이미 같은 카테고리의 도전중 챌린지에 참여하고 있습니다.",
-                                         error_code="ALREADY_IN_PROGRESS_CATEGORY", code=400)
+            # 5. 같은 카테고리 중복 참여 방지
+            if challenge.category and UserChallenge.objects.filter(
+                user=user, challenge__category=challenge.category, status="도전중"
+            ).exclude(challenge=challenge).exists():
+                return error_response(
+                    "이미 같은 카테고리의 도전중 챌린지가 있습니다.",
+                    error_code="ALREADY_IN_PROGRESS_CATEGORY",
+                    code=400
+                )
 
-            # 6. '도전가능' 상태만 참여 허용
+            # 6. 도전가능 상태만
             if challenge.computed_status != "도전가능":
-                return error_response("아직 도전이 불가능한 챌린지입니다.", error_code="NOT_JOINABLE", code=400)
+                return error_response(
+                    "아직 도전이 불가능한 챌린지입니다.",
+                    error_code="NOT_JOINABLE",
+                    code=400
+                )
 
-            # 7. UserChallenge 생성
-            user_challenge = UserChallenge.create_for_user(
+            # 7. 생성
+            uc = UserChallenge.create_for_user(
                 user=user,
                 challenge=challenge,
                 status="도전중",
                 previous_expense=previous_expense,
                 target_expense=target_expense,
-                total_expense=0,  # 생성 시점엔 0
+                total_expense=0
             )
-
-            return success_response({"user_challenge_id": user_challenge.user_challenge_id})
+            return success_response({"user_challenge_id": uc.user_challenge_id})
 
         except Challenge.DoesNotExist:
-            return error_response("해당 챌린지를 찾을 수 없습니다.", error_code="CHALLENGE_NOT_FOUND", code=404)
+            return error_response(
+                "해당 챌린지를 찾을 수 없습니다.",
+                error_code="CHALLENGE_NOT_FOUND",
+                code=404
+            )
         except Exception as e:
             return error_response(str(e), error_code="SERVER_ERROR", code=500)
