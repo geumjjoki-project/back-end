@@ -35,6 +35,7 @@ class ArticleListSerializer(serializers.ModelSerializer):
             "total_comments",
             "likes_count",
             "is_liked",
+            "created_at",
         ]
 
     def get_content_preview(self, obj):
@@ -101,6 +102,7 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
             "likes_count",
             "is_liked",
             "views",
+            "created_at",
         ]
     
     def get_time_ago(self, obj):
@@ -164,6 +166,7 @@ class ReplySerializer(serializers.ModelSerializer):
             "time_ago",
             "likes_count",
             "is_liked",
+            "created_at",
         ]
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -203,6 +206,7 @@ class CommentSerializer(serializers.ModelSerializer):
             "author_profile_image",
             "time_ago",
             "replies",
+            "created_at",
         ]
 
 class CommentCreatePutSerializer(serializers.ModelSerializer):
