@@ -27,6 +27,7 @@ class RewardListSerializer(serializers.ModelSerializer):
             "point",
             "thumbnail",
             "category",
+            "is_active",
         )
 
     def get_thumbnail(self, obj):
