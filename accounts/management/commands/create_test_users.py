@@ -5,6 +5,23 @@ from django.contrib.auth.hashers import make_password
 from accounts.models import User, UserProfile
 
 
+def generate_nickname():
+    # Korean adjectives and nouns
+    adjectives_ko = ["멋진", "행복한", "조용한", "용감한", "귀여운", "반짝이는", "신나는", "달콤한"]
+    nouns_ko = ["고양이", "토끼", "늑대", "여우", "호랑이", "곰", "용", "펭귄"]
+    # English adjectives and nouns
+    adjectives_en = ["Cool", "Happy", "Silent", "Brave", "Cute", "Shiny", "Excited", "Sweet"]
+    nouns_en = ["Cat", "Rabbit", "Wolf", "Fox", "Tiger", "Bear", "Dragon", "Penguin"]
+    # Decide language randomly
+    if random.choice([True, False]):
+        # Korean nickname
+        nickname = f"{random.choice(adjectives_ko)}{random.choice(nouns_ko)}{random.randint(1, 99)}"
+    else:
+        # English nickname
+        nickname = f"{random.choice(adjectives_en)}{random.choice(nouns_en)}{random.randint(1, 99)}"
+    return nickname
+
+
 class Command(BaseCommand):
     help = "[이름: user{i}, 이메일: user{i}@test.com]의 정보로 비밀번호와 유저의 수를 지정해 그 수만큼 유저와 프로필을 생성"
 
@@ -12,8 +29,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--count",
             type=int,
-            default=10000,
-            help="생성할 유저 수 (default: 10000)",
+            default=100,
+            help="생성할 유저 수 (default: 100)",
         )
         parser.add_argument(
             "--password",
@@ -59,6 +76,7 @@ class Command(BaseCommand):
                     is_active=True,
                     is_staff=False,
                     is_superuser=False,
+                    nickname=generate_nickname(),  # 랜덤 닉네임 설정
                 )
             )
         total = len(users_to_create)
