@@ -1,8 +1,9 @@
 from rest_framework.response import Response
 
-def success_response(data=None, code=200):
+def success_response(data={}, message="요청에 성공했습니다.", code=200):
     return Response({
         "status": "success",
+        "message": message,
         "code": code,
         "data": data
     }, status=code)
