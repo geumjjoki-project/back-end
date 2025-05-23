@@ -14,9 +14,46 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,
+)
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # 회원 관리
+    path("admin/", admin.site.urls),
+    path("accounts/", include("allauth.urls")),
+    path("api/v1/auth/", include("accounts.urls")),
+    path("api/v1/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/v1/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/v1/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
+    # 챌린지 관리
+    path("api/v1/challenges/", include("challenges.urls")),
+    # 지출 관리
+    path("api/v1/expenses/", include("expenses.urls")),
+    # 리워드 관리
+    path("api/v1/rewards/", include("rewards.urls")),
+    # swagger, redoc
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/schema/swagger-ui/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
+    path(
+        "api/schema/redoc/",
+        SpectacularRedocView.as_view(url_name="schema"),
+        name="redoc",
+    ),
+    # 게시글 관리
+    path("api/v1/articles/", include("articles.urls")),
 ]
