@@ -1,65 +1,119 @@
+import os
+import json
 import random
-from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
-from articles.models import Article, Comment, ArticleLike, CommentLike
+from datetime import datetime, timedelta
 
-User = get_user_model()
+from django.core.management.base import BaseCommand
+from django.utils.timezone import make_aware
+from articles.models import Article, Comment, ArticleLike, CommentLike
+from accounts.models import User
+from django.conf import settings
+
+
+fixture_dir = os.path.join(settings.BASE_DIR, "articles", "fixtures")
+
 
 class Command(BaseCommand):
-    help = "기존 사용자 기반으로 게시글, 댓글, 좋아요 더미 데이터를 생성합니다."
+    help = "샘플 게시글, 댓글, 좋아요 생성 (sample_articles.json 및 sample_comment_contents.json 필요)"
 
-    def add_arguments(self, parser):
-        parser.add_argument("--articles", type=int, default=50)
-        parser.add_argument("--comments", type=int, default=100)
-
-    def handle(self, *args, **options):
-        article_count = options["articles"]
-        comment_count = options["comments"]
-
-        users = list(User.objects.all()[:100])
+    def handle(self, *args, **kwargs):
+        users = list(User.objects.all())
         if not users:
-            self.stdout.write(self.style.ERROR("❌ 사용자 없음. 먼저 유저 생성 필요"))
+            self.stdout.write(
+                self.style.ERROR("유저가 존재하지 않습니다. 먼저 유저를 생성하세요.")
+            )
             return
 
-        # 게시글 생성
-        articles = []
-        for i in range(article_count):
+        with open(
+            os.path.join(fixture_dir, "sample_articles.json"), encoding="utf-8"
+        ) as f:
+            article_data = json.load(f)
+        with open(
+            os.path.join(fixture_dir, "sample_comment_contents.json"), encoding="utf-8"
+        ) as f:
+            comment_contents = json.load(f)
+
+        now = datetime.now()
+
+        def random_datetime_within(days):
+            delta = timedelta(
+                days=random.randint(0, days),
+                hours=random.randint(0, 23),
+                minutes=random.randint(0, 59),
+            )
+            return make_aware(now - delta)
+
+        def get_random_user():
+            return random.choice(users)
+
+        all_articles = article_data["long"] + article_data["short"]
+        random.shuffle(all_articles)
+
+        article_objs = []
+        for entry in all_articles:
+            created = random_datetime_within(30)
+            updated = created + timedelta(hours=random.randint(1, 48))
+            user = get_random_user()
             article = Article.objects.create(
-                user=random.choice(users),
-                title=f"샘플 제목 {i}",
-                content="내용입니다." * random.randint(2, 5),
-                views=random.randint(0, 100)
-            )
-            articles.append(article)
-
-        # 댓글 생성 (parent_comment가 있어 bulk_create 사용 불가)
-        comments = []
-        for _ in range(comment_count):
-            article = random.choice(articles)
-            user = random.choice(users)
-            parent = random.choice(comments) if comments and random.random() < 0.2 else None
-            comment = Comment.objects.create(
-                article=article,
+                title=entry["title"],
+                content=entry["content"],
                 user=user,
-                parent_comment=parent,
-                content="댓글입니다." * random.randint(1, 2)
+                created_at=created,
+                updated_at=updated,
+                views=random.randint(0, 100),
             )
-            comments.append(comment)
+            article_objs.append(article)
 
-        # 게시글 좋아요 생성
-        article_likes = []
-        for article in articles:
-            liked_users = random.sample(users, k=random.randint(0, min(5, len(users))))
-            for user in liked_users:
-                article_likes.append(ArticleLike(article=article, user=user))
-        ArticleLike.objects.bulk_create(article_likes, ignore_conflicts=True)
+            for u in random.sample(users, k=random.randint(0, min(5, len(users)))):
+                ArticleLike.objects.get_or_create(article=article, user=u)
 
-        # 댓글 좋아요 생성
-        comment_likes = []
-        for comment in comments:
-            liked_users = random.sample(users, k=random.randint(0, min(5, len(users))))
-            for user in liked_users:
-                comment_likes.append(CommentLike(comment=comment, user=user))
-        CommentLike.objects.bulk_create(comment_likes, ignore_conflicts=True)
+        comment_objs = []
+        for article in article_objs:
+            for _ in range(random.randint(1, 3)):
+                parent_created = article.created_at + timedelta(
+                    hours=random.randint(1, 72)
+                )
+                parent_user = get_random_user()
+                content = random.choice(comment_contents)
+                parent_comment = Comment.objects.create(
+                    article=article,
+                    user=parent_user,
+                    content=content,
+                    created_at=parent_created,
+                    updated_at=parent_created
+                    + timedelta(minutes=random.randint(1, 120)),
+                )
+                comment_objs.append(parent_comment)
 
-        self.stdout.write(self.style.SUCCESS("✅ 더미 데이터 생성 완료"))
+                for _ in range(random.randint(0, 3)):
+                    CommentLike.objects.get_or_create(
+                        comment=parent_comment, user=get_random_user()
+                    )
+
+                for _ in range(random.randint(0, 2)):
+                    reply_created = parent_comment.created_at + timedelta(
+                        minutes=random.randint(5, 120)
+                    )
+                    reply_user = get_random_user()
+                    reply_content = random.choice(comment_contents)
+                    reply = Comment.objects.create(
+                        article=article,
+                        user=reply_user,
+                        content=reply_content,
+                        parent_comment=parent_comment,
+                        created_at=reply_created,
+                        updated_at=reply_created
+                        + timedelta(minutes=random.randint(1, 60)),
+                    )
+                    comment_objs.append(reply)
+
+                    for _ in range(random.randint(0, 3)):
+                        CommentLike.objects.get_or_create(
+                            comment=reply, user=get_random_user()
+                        )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"{len(article_objs)}개 게시글, {len(comment_objs)}개 댓글/대댓글, 좋아요 포함 생성 완료"
+            )
+        )
