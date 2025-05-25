@@ -5,9 +5,9 @@ from accounts.models import UserProfile
 User = get_user_model()
 
 def calculate_level(exp: int) -> int:
-    if exp >= 100000:
+    if exp >= 300000:
         return 5
-    elif exp >= 50000:
+    elif exp >= 100000:
         return 4
     elif exp >= 30000:
         return 3
