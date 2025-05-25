@@ -28,11 +28,38 @@ ALLOWED_SORT_FIELDS = [
 # 유저 챌린지 상태 업데이트 헬퍼
 def judge_user_challenge_status(user_challenge):
     today = timezone.now().date()
+
     if user_challenge.status == '도전중' and today > user_challenge.end_date.date():
+        user_profile = user_challenge.user.user_profile
+        challenge = user_challenge.challenge
+
         if user_challenge.total_expense <= user_challenge.target_expense:
             user_challenge.status = '성공'
+
+            # 경험치 및 포인트 계산
+            gained_exp = challenge.point * 10
+            gained_point = challenge.point
+
+            user_profile.exp += gained_exp
+            user_profile.point += gained_point
+
+            # 레벨 계산
+            if user_profile.exp >= 300000:
+                user_profile.level = 5
+            elif user_profile.exp >= 100000:
+                user_profile.level = 4
+            elif user_profile.exp >= 30000:
+                user_profile.level = 3
+            elif user_profile.exp >= 10000:
+                user_profile.level = 2
+            else:
+                user_profile.level = 1
+
+            user_profile.save(update_fields=['exp', 'point', 'level'])
+
         else:
             user_challenge.status = '실패'
+
         user_challenge.save(update_fields=['status'])
 
 
